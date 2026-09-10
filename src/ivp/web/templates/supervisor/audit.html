@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Team audit log — IVP{% endblock %}
+{% block content %}
+<div class="card">
+  <h2>Team audit log</h2>
+  <p class="muted">Read-only, scoped to your team ({{ current_user.team_id }}).</p>
+</div>
+<div class="card">
+  {% include "partials/audit_table.html" %}
+</div>
+{% endblock %}

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}{{ ticket.id }} — IVP{% endblock %}
+{% block content %}
+<div class="card">
+  <h2>{{ ticket.id }}</h2>
+  <p>
+    Subscriber: <strong>{{ ticket.subscriber_id }}</strong> &middot;
+    Action: <strong>{{ ticket.requested_action.value }}</strong> &middot;
+    Status: <span class="badge {{ 'closed' if ticket.status.value == 'CLOSED' else 'open' }}">{{ ticket.status.value }}</span>
+    {% if ticket.action_performed %}<span class="badge approved">ACTION PERFORMED</span>{% endif %}
+  </p>
+</div>
+
+<div class="card">
+  <h3>Verification status</h3>
+  {% include "agent/_status_partial.html" %}
+</div>
+
+{% if ticket.status.value == "OPEN" %}
+<div class="card">
+  <h3>Resolve ticket</h3>
+  <p class="muted">Closing requires a verification record to exist for this ticket — this button
+  will fail with an explanation if none exists yet.</p>
+  <form class="inline" method="post" action="/agent/tickets/{{ ticket.id }}/authorize">
+    <button type="submit" class="secondary">Authorize action</button>
+  </form>
+  <form class="inline" method="post" action="/agent/tickets/{{ ticket.id }}/close">
+    <button type="submit">Close ticket</button>
+  </form>
+</div>
+{% endif %}
+
+<div class="card">
+  <h3>Audit trail for this ticket</h3>
+  {% with records = audit_records %}
+    {% include "partials/audit_table.html" %}
+  {% endwith %}
+</div>
+{% endblock %}

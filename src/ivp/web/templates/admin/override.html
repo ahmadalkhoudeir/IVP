@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Override — {{ ticket.id }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width: 480px;">
+  <h2>Admin override — {{ ticket.id }}</h2>
+  <p class="demo-warning">
+    This closes the ticket (and authorizes the action) without a completed out-of-band
+    confirmation. Only admins can do this, and it writes its own distinct ADMIN_OVERRIDE audit
+    record with the reason below — see docs/decisions/admin-override.md.
+  </p>
+  <p>Subscriber: <strong>{{ ticket.subscriber_id }}</strong> &middot;
+     Action: <strong>{{ ticket.requested_action.value }}</strong></p>
+  <form method="post" action="/admin/tickets/{{ ticket.id }}/override">
+    <label for="reason">Reason (required)</label>
+    <input type="text" id="reason" name="reason" required
+           placeholder="e.g. Identity proofed in person; caller had no enrolled channel.">
+    <button type="submit" class="danger" style="margin-top: 1rem;">Record override &amp; close ticket</button>
+  </form>
+</div>
+{% endblock %}

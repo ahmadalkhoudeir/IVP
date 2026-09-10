@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Supervisor — IVP{% endblock %}
+{% block content %}
+<div class="card">
+  <div style="display:flex; justify-content: space-between; align-items:center;">
+    <h2 style="margin:0;">Team tickets</h2>
+    <a class="btn secondary" href="/supervisor/audit">Team audit log</a>
+  </div>
+  <p class="muted">Scoped to your team ({{ current_user.team_id }}) — not a global view.</p>
+</div>
+<div class="card">
+  {% if tickets %}
+  <table>
+    <thead><tr><th>Ticket</th><th>Agent</th><th>Subscriber</th><th>Action</th><th>Status</th></tr></thead>
+    <tbody>
+      {% for t in tickets %}
+      <tr>
+        <td>{{ t.id }}</td>
+        <td>{{ t.agent_id }}</td>
+        <td>{{ t.subscriber_id }}</td>
+        <td>{{ t.requested_action.value }}</td>
+        <td><span class="badge {{ 'closed' if t.status.value == 'CLOSED' else 'open' }}">{{ t.status.value }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">No tickets for your team yet.</p>
+  {% endif %}
+</div>
+{% endblock %}

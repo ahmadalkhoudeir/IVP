@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Adapter config — IVP{% endblock %}
+{% block content %}
+<div class="card">
+  <h2>Adapter configuration</h2>
+  <p class="muted">Read-only for this demo. Ticketing and notification systems are accessed only
+  through adapter interfaces (src/ivp/adapters/) — only mock implementations exist; no vendor is
+  assumed.</p>
+  <table>
+    <tbody>
+      <tr><th>Ticketing adapter</th><td>SqlitePersistedTicketingAdapter (mock, local persistence)</td></tr>
+      <tr><th>Notification: push</th><td>MockPushAdapter</td></tr>
+      <tr><th>Notification: SMS/voice</th><td>MockPstnAdapter (NIST SP 800-63B-4 restricted authenticator)</td></tr>
+      <tr><th>Notification: email</th><td>Not implemented — see docs/decisions/email-channel.md</td></tr>
+      <tr><th>Confirmation timeout</th><td>{{ timeout_seconds }} seconds</td></tr>
+      <tr><th>Max confirmation attempts</th><td>{{ max_attempts }}</td></tr>
+    </tbody>
+  </table>
+</div>
+{% endblock %}

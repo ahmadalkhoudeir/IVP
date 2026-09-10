@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Log in — IVP{% endblock %}
+{% block content %}
+<div class="card" style="max-width: 380px; margin: 2rem auto;">
+  <h2>Staff login</h2>
+  <p class="muted">This authenticates staff to the dashboard — a separate concern from the
+  account holder's out-of-band verification.</p>
+  <form method="post" action="/login">
+    <label for="username">Username</label>
+    <input type="text" id="username" name="username" required autofocus>
+    <label for="password">Password</label>
+    <input type="password" id="password" name="password" required>
+    <button type="submit" style="margin-top: 1rem; width: 100%;">Log in</button>
+  </form>
+  <p class="muted" style="margin-top: 1rem; font-size: 0.85rem;">
+    Demo accounts (synthetic, see docs/decisions): agent1/agent2, supervisor1, admin1 — passwords
+    in <span class="code">src/ivp/services/demo_seed.py</span>.
+  </p>
+</div>
+{% endblock %}

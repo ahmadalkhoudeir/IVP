@@ -366,6 +366,7 @@ dependencies = [
     { name = "jinja2" },
     { name = "passlib", extra = ["argon2"] },
     { name = "pydantic" },
+    { name = "python-dotenv" },
     { name = "python-multipart" },
     { name = "uvicorn", extra = ["standard"] },
 ]
@@ -386,6 +387,7 @@ requires-dist = [
     { name = "jinja2", specifier = ">=3.1.6" },
     { name = "passlib", extras = ["argon2"], specifier = ">=1.7.4" },
     { name = "pydantic", specifier = ">=2.13.5" },
+    { name = "python-dotenv", specifier = ">=1.2.3" },
     { name = "python-multipart", specifier = ">=0.0.32" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.52.4" },
 ]

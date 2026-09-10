@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}New ticket — IVP{% endblock %}
+{% block content %}
+<div class="card" style="max-width: 480px;">
+  <h2>Request a sensitive action</h2>
+  <p class="muted">A confirmation will be sent to whatever channel this subscriber enrolled
+  before this call — nothing here lets you choose or change it.</p>
+  <form method="post" action="/agent/tickets">
+    <label for="subscriber_id">Subscriber</label>
+    <select id="subscriber_id" name="subscriber_id" required>
+      {% for sub_id, display_name, channels in subscribers %}
+      <option value="{{ sub_id }}">
+        {{ display_name }} {{ "(no enrolled channel)" if not channels else "" }}
+      </option>
+      {% endfor %}
+    </select>
+
+    <label for="requested_action">Requested action</label>
+    <select id="requested_action" name="requested_action" required>
+      {% for action in actions %}
+      <option value="{{ action.value }}">{{ action.value }}</option>
+      {% endfor %}
+    </select>
+
+    <button type="submit" style="margin-top: 1rem;">Open ticket &amp; send confirmation</button>
+  </form>
+</div>
+{% endblock %}

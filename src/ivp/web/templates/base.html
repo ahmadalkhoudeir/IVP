@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}IVP{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/htmx.min.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">IVP <small>Help Desk Identity Verification Protocol</small></div>
+    {% if current_user %}
+    <div>
+      <span class="muted">{{ current_user.username }} ({{ current_user.role.value }})</span>
+      <form class="inline" method="post" action="/logout" style="margin-left: 0.75rem;">
+        <button class="secondary" type="submit">Log out</button>
+      </form>
+    </div>
+    {% endif %}
+  </header>
+  <main>
+    {% if request.query_params.get('error') %}
+      <div class="flash error">{{ request.query_params.get('error') }}</div>
+    {% endif %}
+    {% if request.query_params.get('success') %}
+      <div class="flash success">{{ request.query_params.get('success') }}</div>
+    {% endif %}
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

@@ -1,0 +1,38 @@
+<div id="verification-status"
+     {% if attempt and attempt.state.value == "PENDING_CONFIRMATION" %}
+     hx-get="/agent/tickets/{{ ticket.id }}/status"
+     hx-trigger="every 3s"
+     hx-swap="outerHTML"
+     {% endif %}>
+{% if attempt is none %}
+  <p><span class="badge no-channel">NO_CHANNEL_BLOCKED</span> this subscriber has no enrolled
+  channel. This system will not fall back to knowledge-based verification — an admin must
+  resolve this via an override (with a recorded reason) before the ticket can close.</p>
+{% elif attempt.state.value == "PENDING_CONFIRMATION" %}
+  <p><span class="badge pending">PENDING_CONFIRMATION</span> waiting for the account holder
+  (attempt {{ attempt.attempt_number }} of {{ attempt.max_attempts }}).</p>
+  <p>Read this code aloud to the caller — they must select the matching code:</p>
+  <div class="code-display">{{ code }}</div>
+  <div class="demo-warning">
+    DEMO ONLY: in a real deployment you would never see this link — the confirmation goes
+    straight to the account holder's enrolled device. It's here only so you can simulate their
+    side of the flow.<br>
+    <a href="/confirm/{{ attempt_id }}" target="_blank">Open the holder console &rarr;</a>
+  </div>
+{% elif attempt.state.value == "APPROVED" %}
+  <p><span class="badge approved">APPROVED</span> the account holder confirmed the request.</p>
+{% elif attempt.state.value == "DENIED" %}
+  <p><span class="badge denied">DENIED</span> the account holder denied the request.</p>
+{% elif attempt.state.value == "EXPIRED" %}
+  <p><span class="badge expired">EXPIRED</span>
+  {% if attempt.can_retry() %}
+    no response in time.
+    <form class="inline" method="post" action="/agent/tickets/{{ ticket.id }}/retry">
+      <button type="submit">Resend confirmation</button>
+    </form>
+  {% else %}
+    no response after {{ attempt.attempt_number }} attempts — no more retries available.
+  {% endif %}
+  </p>
+{% endif %}
+</div>

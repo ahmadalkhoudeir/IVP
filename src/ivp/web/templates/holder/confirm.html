@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Confirm request{% endblock %}
+{% block content %}
+<div class="card" style="max-width: 420px; margin: 2rem auto;">
+  <div class="demo-warning">
+    DEMO ONLY — this page simulates what the account holder sees on their enrolled device (a
+    push notification or phone call), not something a real deployment would show in a browser.
+  </div>
+  <h2>Someone requested a sensitive action on your account</h2>
+  <p>The person you're speaking with should read a 6-digit code aloud. Tap the matching code
+  below to approve. If none of them match, tap "None of these match".</p>
+
+  <form method="post" action="/confirm/{{ attempt_id }}">
+    <div class="code-choice">
+      {% for choice in choices %}
+      <button type="submit" name="selected_code" value="{{ choice }}">{{ choice }}</button>
+      {% endfor %}
+    </div>
+    <button type="submit" name="selected_code" value="none-of-these" class="secondary" style="width: 100%;">
+      None of these match — deny this request
+    </button>
+  </form>
+</div>
+{% endblock %}

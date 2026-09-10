@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Confirmation result{% endblock %}
+{% block content %}
+<div class="card" style="max-width: 420px; margin: 2rem auto; text-align: center;">
+  {% if outcome == "APPROVED" %}
+    <h2><span class="badge approved">APPROVED</span></h2>
+    <p>You confirmed the request. The agent has been notified.</p>
+  {% elif outcome == "DENIED" %}
+    <h2><span class="badge denied">DENIED</span></h2>
+    <p>You denied the request (or the code didn't match). The agent has been notified and the
+    sensitive action will not be performed.</p>
+  {% elif outcome == "ALREADY_RESOLVED" %}
+    <h2><span class="badge expired">Already resolved</span></h2>
+    <p>This confirmation link has already been used
+    {% if state %}(current state: {{ state }}){% endif %} — this attempt has been logged as a
+    replay for audit purposes and does not change the original outcome.</p>
+  {% endif %}
+</div>
+{% endblock %}

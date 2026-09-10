@@ -1,0 +1,20 @@
+{% if records %}
+<table>
+  <thead><tr><th>#</th><th>Ticket</th><th>Actor</th><th>Channel</th><th>Outcome</th><th>When</th><th>Reason</th></tr></thead>
+  <tbody>
+  {% for r in records %}
+    <tr>
+      <td>{{ r.sequence }}</td>
+      <td>{{ r.ticket_id }}</td>
+      <td>{{ r.actor_id }} ({{ r.actor_role }})</td>
+      <td>{{ r.channel_type.value if r.channel_type else "—" }}</td>
+      <td><span class="badge {{ r.outcome.value|lower|replace('_', '-') }}">{{ r.outcome.value }}</span></td>
+      <td>{{ r.timestamp }}</td>
+      <td>{{ r.reason or "—" }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">No audit records.</p>
+{% endif %}

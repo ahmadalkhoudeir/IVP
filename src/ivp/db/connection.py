@@ -100,7 +100,15 @@ CREATE INDEX IF NOT EXISTS idx_verification_attempts_ticket
 def connect(path: str) -> sqlite3.Connection:
     if path != ":memory:":
         Path(path).parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(path)
+    # check_same_thread=False: FastAPI runs sync route handlers in a
+    # threadpool, so this single shared connection is used from whatever
+    # thread handles a given request. Safe here because the underlying
+    # SQLite library is built with serialized threading (its own internal
+    # mutex protects concurrent access) — this only disables Python's own
+    # same-thread guard, not SQLite's actual thread safety. A
+    # connection-per-request pattern (or an async driver) would be the
+    # production-grade choice for higher concurrency than this demo needs.
+    conn = sqlite3.connect(path, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode = WAL")
     conn.execute("PRAGMA foreign_keys = ON")

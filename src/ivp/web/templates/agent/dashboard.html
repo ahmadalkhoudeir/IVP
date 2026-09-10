@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Agent — IVP{% endblock %}
+{% block content %}
+<div class="card">
+  <div style="display:flex; justify-content: space-between; align-items:center;">
+    <h2 style="margin:0;">Your tickets</h2>
+    <a class="btn" href="/agent/tickets/new">+ New sensitive-action ticket</a>
+  </div>
+</div>
+
+<div class="card">
+  {% if tickets %}
+  <table>
+    <thead><tr><th>Ticket</th><th>Subscriber</th><th>Action</th><th>Status</th></tr></thead>
+    <tbody>
+      {% for t in tickets %}
+      <tr>
+        <td><a href="/agent/tickets/{{ t.id }}">{{ t.id }}</a></td>
+        <td>{{ t.subscriber_id }}</td>
+        <td>{{ t.requested_action.value }}</td>
+        <td><span class="badge {{ 'closed' if t.status.value == 'CLOSED' else 'open' }}">{{ t.status.value }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">No tickets yet.</p>
+  {% endif %}
+</div>
+{% endblock %}

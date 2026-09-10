@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Staff accounts — IVP{% endblock %}
+{% block content %}
+<div class="card">
+  <h2>Staff accounts</h2>
+  <table>
+    <thead><tr><th>Username</th><th>Role</th><th>Team</th></tr></thead>
+    <tbody>
+      {% for s in staff %}
+      <tr><td>{{ s.username }}</td><td>{{ s.role.value }}</td><td>{{ s.team_id or "—" }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<div class="card" style="max-width: 420px;">
+  <h3>Create account</h3>
+  <form method="post" action="/admin/users">
+    <label for="username">Username</label>
+    <input type="text" id="username" name="username" required>
+    <label for="password">Password</label>
+    <input type="password" id="password" name="password" required>
+    <label for="role">Role</label>
+    <select id="role" name="role" required>
+      {% for r in roles %}
+      <option value="{{ r.value }}">{{ r.value }}</option>
+      {% endfor %}
+    </select>
+    <label for="team_id">Team (leave blank for admin)</label>
+    <input type="text" id="team_id" name="team_id" placeholder="team-demo">
+    <button type="submit" style="margin-top: 1rem;">Create account</button>
+  </form>
+</div>
+{% endblock %}
