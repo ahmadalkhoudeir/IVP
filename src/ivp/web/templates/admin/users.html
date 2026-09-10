@@ -3,14 +3,20 @@
 {% block content %}
 <div class="card">
   <h2>Staff accounts</h2>
+  <div class="overflow-x">
   <table>
     <thead><tr><th>Username</th><th>Role</th><th>Team</th></tr></thead>
     <tbody>
       {% for s in staff %}
-      <tr><td>{{ s.username }}</td><td>{{ s.role.value }}</td><td>{{ s.team_id or "—" }}</td></tr>
+      <tr>
+        <td>{{ s.username }}</td>
+        <td><span class="role-chip role-{{ s.role.value|lower }}">{{ s.role.value }}</span></td>
+        <td>{{ s.team_id or "—" }}</td>
+      </tr>
       {% endfor %}
     </tbody>
   </table>
+  </div>
 </div>
 <div class="card" style="max-width: 420px;">
   <h3>Create account</h3>

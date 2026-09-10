@@ -2,9 +2,9 @@
 {% block title %}Admin — IVP{% endblock %}
 {% block content %}
 <div class="card">
-  <div style="display:flex; justify-content: space-between; align-items:center; flex-wrap: wrap; gap: 0.5rem;">
-    <h2 style="margin:0;">All tickets</h2>
-    <div>
+  <div class="page-header">
+    <h2>All tickets</h2>
+    <div class="actions">
       <a class="btn secondary" href="/admin/audit">Full audit log</a>
       <a class="btn secondary" href="/admin/users">Staff accounts</a>
       <a class="btn secondary" href="/admin/subscribers">Channel enrollments</a>
@@ -14,6 +14,7 @@
 </div>
 <div class="card">
   {% if tickets %}
+  <div class="overflow-x">
   <table>
     <thead><tr><th>Ticket</th><th>Agent</th><th>Subscriber</th><th>Action</th><th>Status</th><th></th></tr></thead>
     <tbody>
@@ -33,6 +34,7 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
   {% else %}
   <p class="muted">No tickets yet.</p>
   {% endif %}

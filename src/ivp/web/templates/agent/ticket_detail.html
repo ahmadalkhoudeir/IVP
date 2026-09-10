@@ -7,7 +7,7 @@
     Subscriber: <strong>{{ ticket.subscriber_id }}</strong> &middot;
     Action: <strong>{{ ticket.requested_action.value }}</strong> &middot;
     Status: <span class="badge {{ 'closed' if ticket.status.value == 'CLOSED' else 'open' }}">{{ ticket.status.value }}</span>
-    {% if ticket.action_performed %}<span class="badge approved">ACTION PERFORMED</span>{% endif %}
+    {% if ticket.action_performed %} <span class="badge approved">ACTION PERFORMED</span>{% endif %}
   </p>
 </div>
 
@@ -21,12 +21,14 @@
   <h3>Resolve ticket</h3>
   <p class="muted">Closing requires a verification record to exist for this ticket — this button
   will fail with an explanation if none exists yet.</p>
-  <form class="inline" method="post" action="/agent/tickets/{{ ticket.id }}/authorize">
-    <button type="submit" class="secondary">Authorize action</button>
-  </form>
-  <form class="inline" method="post" action="/agent/tickets/{{ ticket.id }}/close">
-    <button type="submit">Close ticket</button>
-  </form>
+  <div style="display: flex; gap: 0.5rem;">
+    <form method="post" action="/agent/tickets/{{ ticket.id }}/authorize">
+      <button type="submit" class="secondary">Authorize action</button>
+    </form>
+    <form method="post" action="/agent/tickets/{{ ticket.id }}/close">
+      <button type="submit">Close ticket</button>
+    </form>
+  </div>
 </div>
 {% endif %}
 

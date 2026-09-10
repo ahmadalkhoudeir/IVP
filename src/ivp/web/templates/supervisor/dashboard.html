@@ -2,14 +2,17 @@
 {% block title %}Supervisor — IVP{% endblock %}
 {% block content %}
 <div class="card">
-  <div style="display:flex; justify-content: space-between; align-items:center;">
-    <h2 style="margin:0;">Team tickets</h2>
-    <a class="btn secondary" href="/supervisor/audit">Team audit log</a>
+  <div class="page-header">
+    <h2>Team tickets</h2>
+    <div class="actions">
+      <a class="btn secondary" href="/supervisor/audit">Team audit log</a>
+    </div>
   </div>
   <p class="muted">Scoped to your team ({{ current_user.team_id }}) — not a global view.</p>
 </div>
 <div class="card">
   {% if tickets %}
+  <div class="overflow-x">
   <table>
     <thead><tr><th>Ticket</th><th>Agent</th><th>Subscriber</th><th>Action</th><th>Status</th></tr></thead>
     <tbody>
@@ -24,6 +27,7 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
   {% else %}
   <p class="muted">No tickets for your team yet.</p>
   {% endif %}

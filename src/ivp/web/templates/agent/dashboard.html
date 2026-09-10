@@ -2,14 +2,17 @@
 {% block title %}Agent — IVP{% endblock %}
 {% block content %}
 <div class="card">
-  <div style="display:flex; justify-content: space-between; align-items:center;">
-    <h2 style="margin:0;">Your tickets</h2>
-    <a class="btn" href="/agent/tickets/new">+ New sensitive-action ticket</a>
+  <div class="page-header">
+    <h2>Your tickets</h2>
+    <div class="actions">
+      <a class="btn" href="/agent/tickets/new">+ New sensitive-action ticket</a>
+    </div>
   </div>
 </div>
 
 <div class="card">
   {% if tickets %}
+  <div class="overflow-x">
   <table>
     <thead><tr><th>Ticket</th><th>Subscriber</th><th>Action</th><th>Status</th></tr></thead>
     <tbody>
@@ -23,6 +26,7 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
   {% else %}
   <p class="muted">No tickets yet.</p>
   {% endif %}
