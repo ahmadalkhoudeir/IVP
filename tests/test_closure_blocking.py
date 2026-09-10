@@ -4,6 +4,7 @@ import pytest
 
 from ivp.audit.log import AuditLog
 from ivp.audit.record import AuditOutcome
+from ivp.auth.roles import PermissionDenied, Role
 from ivp.core.models import ChannelType, SensitiveAction, TicketStatus
 from ivp.core.ticket import ClosureBlocked, Ticket, TicketClosureGate
 
@@ -155,3 +156,64 @@ def test_denied_ticket_can_close_but_action_is_never_authorized():
     gate.close(ticket)
     assert ticket.status == TicketStatus.CLOSED
     assert not ticket.action_performed
+
+
+def test_admin_override_by_supervisor_is_denied():
+    """Defense-in-depth: even if a route-level RBAC check were bypassed,
+    the domain method itself must refuse a non-admin actor."""
+    log = AuditLog()
+    gate = TicketClosureGate(log)
+    ticket = make_ticket()
+    with pytest.raises(PermissionDenied):
+        gate.admin_override(
+            ticket,
+            actor_id="supervisor-1",
+            actor_role=Role.SUPERVISOR,
+            reason="trying to skip verification",
+            now=T0,
+        )
+    assert not log.records_for_ticket(ticket.id)
+
+
+def test_admin_override_by_agent_is_denied():
+    log = AuditLog()
+    gate = TicketClosureGate(log)
+    ticket = make_ticket()
+    with pytest.raises(PermissionDenied):
+        gate.admin_override(
+            ticket, actor_id="agent-1", actor_role=Role.AGENT, reason="trying to skip", now=T0
+        )
+
+
+def test_admin_override_without_reason_is_rejected():
+    log = AuditLog()
+    gate = TicketClosureGate(log)
+    ticket = make_ticket()
+    with pytest.raises(ValueError):
+        gate.admin_override(
+            ticket, actor_id="admin-1", actor_role=Role.ADMIN, reason="", now=T0
+        )
+
+
+def test_admin_override_by_admin_writes_record_and_unblocks_closure_and_action():
+    log = AuditLog()
+    gate = TicketClosureGate(log)
+    ticket = make_ticket()
+
+    gate.admin_override(
+        ticket,
+        actor_id="admin-1",
+        actor_role=Role.ADMIN,
+        reason="Identity proofed in person; no enrolled channel.",
+        now=T0,
+    )
+
+    [record] = log.records_for_ticket(ticket.id)
+    assert record.outcome == AuditOutcome.ADMIN_OVERRIDE
+    assert record.actor_id == "admin-1"
+    assert record.reason
+
+    gate.authorize_action(ticket)
+    gate.close(ticket)
+    assert ticket.action_performed
+    assert ticket.status == TicketStatus.CLOSED

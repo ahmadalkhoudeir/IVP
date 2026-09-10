@@ -9,9 +9,11 @@ single attempt's state.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime
 
 from ivp.audit.log import AuditLog
 from ivp.audit.record import CLOSURE_SATISFYING_OUTCOMES, AuditOutcome
+from ivp.auth.roles import Permission, Role, require_permission
 from ivp.core.models import SensitiveAction, TicketStatus
 
 # Outcomes that authorize the sensitive action itself to be marked
@@ -64,6 +66,40 @@ class TicketClosureGate:
                 f"ticket {ticket.id}: no verification record exists; closure is blocked"
             )
         ticket.status = TicketStatus.CLOSED
+
+    def admin_override(
+        self,
+        ticket: Ticket,
+        *,
+        actor_id: str,
+        actor_role: Role,
+        reason: str,
+        now: datetime,
+    ) -> None:
+        """Write an ADMIN_OVERRIDE record for this ticket, e.g. to unblock a
+        NO_CHANNEL_BLOCKED ticket via out-of-system identity proofing. This
+        does NOT call close()/authorize_action() itself — callers still go
+        through those methods, which will now see the ADMIN_OVERRIDE record.
+
+        Checks the ADMIN_OVERRIDE_TICKET permission itself, as a
+        defense-in-depth backstop: the web route calling this must already
+        enforce Role.ADMIN via the RBAC dependency (docs/decisions/
+        admin-override.md), but this method must never trust that alone
+        (see docs/threat-model.md, Elevation of Privilege).
+        """
+        require_permission(actor_role, Permission.ADMIN_OVERRIDE_TICKET)
+        if not reason:
+            raise ValueError("ADMIN_OVERRIDE requires a reason")
+        self._audit_log.append(
+            ticket_id=ticket.id,
+            actor_id=actor_id,
+            actor_role=actor_role.value,
+            requested_action=ticket.requested_action,
+            channel_type=None,
+            outcome=AuditOutcome.ADMIN_OVERRIDE,
+            timestamp=now,
+            reason=reason,
+        )
 
     def _has_outcome(self, ticket_id: str, outcomes: frozenset[AuditOutcome]) -> bool:
         return any(r.outcome in outcomes for r in self._audit_log.records_for_ticket(ticket_id))
