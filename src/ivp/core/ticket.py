@@ -34,6 +34,8 @@ class ClosureBlocked(Exception):
 class Ticket:
     id: str
     requested_action: SensitiveAction
+    subscriber_id: str
+    agent_id: str
     status: TicketStatus = TicketStatus.OPEN
     action_performed: bool = field(default=False)
 

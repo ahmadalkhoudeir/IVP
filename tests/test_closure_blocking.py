@@ -12,7 +12,12 @@ T0 = datetime(2026, 1, 1, 12, 0, 0, tzinfo=UTC)
 
 
 def make_ticket(ticket_id: str = "T-1") -> Ticket:
-    return Ticket(id=ticket_id, requested_action=SensitiveAction.PASSWORD_RESET)
+    return Ticket(
+        id=ticket_id,
+        requested_action=SensitiveAction.PASSWORD_RESET,
+        subscriber_id="sub-1",
+        agent_id="agent-1",
+    )
 
 
 def record(log: AuditLog, ticket_id: str, outcome: AuditOutcome, **overrides) -> None:

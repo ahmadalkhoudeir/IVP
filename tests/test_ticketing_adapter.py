@@ -18,6 +18,15 @@ def make_adapter() -> tuple[MockTicketingAdapter, AuditLog]:
     return MockTicketingAdapter(gate), log
 
 
+def make_ticket(ticket_id: str = "T-1") -> Ticket:
+    return Ticket(
+        id=ticket_id,
+        requested_action=SensitiveAction.PASSWORD_RESET,
+        subscriber_id="sub-1",
+        agent_id="agent-1",
+    )
+
+
 def test_get_ticket_not_found_raises():
     adapter, _ = make_adapter()
     with pytest.raises(TicketNotFound):
@@ -28,14 +37,14 @@ def test_close_ticket_blocked_without_verification_record():
     """The adapter re-validates itself; it never trusts a caller's claim
     that verification already happened."""
     adapter, _log = make_adapter()
-    adapter.seed(Ticket(id="T-1", requested_action=SensitiveAction.PASSWORD_RESET))
+    adapter.seed(make_ticket())
     with pytest.raises(ClosureBlocked):
         adapter.close_ticket("T-1")
 
 
 def test_close_ticket_succeeds_after_audit_record_exists():
     adapter, log = make_adapter()
-    adapter.seed(Ticket(id="T-1", requested_action=SensitiveAction.PASSWORD_RESET))
+    adapter.seed(make_ticket())
     log.append(
         ticket_id="T-1",
         actor_id="agent-1",
@@ -51,7 +60,7 @@ def test_close_ticket_succeeds_after_audit_record_exists():
 
 def test_mark_action_performed_blocked_without_approval():
     adapter, log = make_adapter()
-    adapter.seed(Ticket(id="T-1", requested_action=SensitiveAction.PASSWORD_RESET))
+    adapter.seed(make_ticket())
     log.append(
         ticket_id="T-1",
         actor_id="agent-1",

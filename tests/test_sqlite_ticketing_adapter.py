@@ -33,8 +33,12 @@ def test_close_ticket_blocked_without_record():
     conn = connect(":memory:")
     ticketing, repo, _log = build(conn)
     repo.create(
-        Ticket(id="T-1", requested_action=SensitiveAction.PASSWORD_RESET),
-        agent_id="agent-1",
+        Ticket(
+            id="T-1",
+            requested_action=SensitiveAction.PASSWORD_RESET,
+            subscriber_id="sub-1",
+            agent_id="agent-1",
+        ),
         now=T0,
     )
     with pytest.raises(ClosureBlocked):
@@ -46,8 +50,12 @@ def test_close_ticket_persists_status():
     conn = connect(":memory:")
     ticketing, repo, log = build(conn)
     repo.create(
-        Ticket(id="T-1", requested_action=SensitiveAction.PASSWORD_RESET),
-        agent_id="agent-1",
+        Ticket(
+            id="T-1",
+            requested_action=SensitiveAction.PASSWORD_RESET,
+            subscriber_id="sub-1",
+            agent_id="agent-1",
+        ),
         now=T0,
     )
     log.append(
@@ -73,8 +81,12 @@ def test_full_round_trip_survives_a_fresh_connection_object(tmp_path):
     conn1 = connect(db_path)
     ticketing1, repo1, log1 = build(conn1)
     repo1.create(
-        Ticket(id="T-1", requested_action=SensitiveAction.PASSWORD_RESET),
-        agent_id="agent-1",
+        Ticket(
+            id="T-1",
+            requested_action=SensitiveAction.PASSWORD_RESET,
+            subscriber_id="sub-1",
+            agent_id="agent-1",
+        ),
         now=T0,
     )
     log1.append(

@@ -12,19 +12,21 @@ class SqliteTicketRepository:
     def __init__(self, conn: sqlite3.Connection):
         self._conn = conn
 
-    def create(self, ticket: Ticket, *, agent_id: str, now: datetime) -> None:
+    def create(self, ticket: Ticket, *, now: datetime) -> None:
         self._conn.execute(
             """
             INSERT INTO tickets
-                (id, requested_action, status, action_performed, agent_id, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+                (id, requested_action, status, action_performed, agent_id,
+                 subscriber_id, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 ticket.id,
                 ticket.requested_action.value,
                 ticket.status.value,
                 int(ticket.action_performed),
-                agent_id,
+                ticket.agent_id,
+                ticket.subscriber_id,
                 now.isoformat(),
             ),
         )
@@ -49,6 +51,18 @@ class SqliteTicketRepository:
         ).fetchall()
         return [self._row_to_ticket(row) for row in rows]
 
+    def list_for_team(self, team_id: str) -> list[Ticket]:
+        rows = self._conn.execute(
+            """
+            SELECT tickets.* FROM tickets
+            JOIN staff_users ON staff_users.id = tickets.agent_id
+            WHERE staff_users.team_id = ?
+            ORDER BY tickets.created_at DESC
+            """,
+            (team_id,),
+        ).fetchall()
+        return [self._row_to_ticket(row) for row in rows]
+
     def list_all(self) -> list[Ticket]:
         rows = self._conn.execute("SELECT * FROM tickets ORDER BY created_at DESC").fetchall()
         return [self._row_to_ticket(row) for row in rows]
@@ -58,6 +72,8 @@ class SqliteTicketRepository:
         return Ticket(
             id=row["id"],
             requested_action=SensitiveAction(row["requested_action"]),
+            subscriber_id=row["subscriber_id"],
+            agent_id=row["agent_id"],
             status=TicketStatus(row["status"]),
             action_performed=bool(row["action_performed"]),
         )
