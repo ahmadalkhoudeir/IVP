@@ -32,3 +32,24 @@ blast radius of this necessarily risky escape hatch (see threat model:
   restricted, so the route itself should assert intent in code/comments.
 - `docs/threat-model.md` must carry this as a named risk, not just an
   implementation detail.
+
+## Follow-up decision: does an override authorize performing the action?
+`TicketClosureGate` (`src/ivp/core/closure.py`) treats `ADMIN_OVERRIDE` as
+authorizing *both* ticket closure and marking the sensitive action
+performed — not just closure. `DENIED` and a plain `EXPIRED` record close
+the ticket but never authorize the action.
+
+This was not explicitly specified by the project owner and is called out
+here as a judgment call, not a settled requirement — **flagged for
+confirmation**. The reasoning: an admin override exists primarily for the
+`NO_CHANNEL_BLOCKED` case, where the account holder was identity-proofed by
+some out-of-system means (e.g., in person). If the override could close the
+ticket but never let the action be marked performed, the escape hatch would
+be useless for its stated purpose. The trade-off is real, though: this makes
+`ADMIN_OVERRIDE` the single highest-value target in the system for a
+compromised or coerced admin account, since it's the one record type that
+can authorize a sensitive action with no OOB confirmation at all. If that
+trade-off is unacceptable, the alternative is to split this into two
+distinct record types (e.g. `ADMIN_OVERRIDE_CLOSE_ONLY` vs.
+`ADMIN_OVERRIDE_AUTHORIZE_ACTION`), so an admin must explicitly choose the
+stronger claim rather than one override doing both silently.
