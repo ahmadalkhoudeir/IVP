@@ -75,6 +75,12 @@ class SqliteChannelRepository:
     def has_any_enrollment(self, subscriber_id: str) -> bool:
         return bool(self.list_for_subscriber(subscriber_id))
 
+    def get_by_id(self, enrollment_id: str) -> ChannelEnrollment | None:
+        row = self._conn.execute(
+            "SELECT * FROM channel_enrollments WHERE id = ?", (enrollment_id,)
+        ).fetchone()
+        return self._row_to_enrollment(row) if row else None
+
     @staticmethod
     def _row_to_enrollment(row: sqlite3.Row) -> ChannelEnrollment:
         return ChannelEnrollment(
