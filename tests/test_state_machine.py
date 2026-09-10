@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -8,17 +8,17 @@ from ivp.core.state_machine import (
     VerificationState,
 )
 
-NOW = datetime(2026, 1, 1, 12, 0, 0)
+NOW = datetime(2026, 1, 1, 12, 0, 0, tzinfo=UTC)
 
 
 def make_attempt(**overrides) -> VerificationAttempt:
-    defaults = dict(
-        ticket_id="T-1",
-        requested_action="PASSWORD_RESET",
-        channel_id="chan-1",
-        max_attempts=3,
-        timeout=timedelta(minutes=4),
-    )
+    defaults = {
+        "ticket_id": "T-1",
+        "requested_action": "PASSWORD_RESET",
+        "channel_id": "chan-1",
+        "max_attempts": 3,
+        "timeout": timedelta(minutes=4),
+    }
     defaults.update(overrides)
     return VerificationAttempt(**defaults)
 

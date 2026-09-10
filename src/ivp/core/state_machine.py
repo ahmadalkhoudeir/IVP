@@ -22,13 +22,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from enum import Enum
+from enum import StrEnum
 
 DEFAULT_CONFIRMATION_TIMEOUT = timedelta(minutes=4)
 DEFAULT_MAX_ATTEMPTS = 3
 
 
-class VerificationState(str, Enum):
+class VerificationState(StrEnum):
     REQUESTED = "REQUESTED"
     NO_CHANNEL_BLOCKED = "NO_CHANNEL_BLOCKED"
     PENDING_CONFIRMATION = "PENDING_CONFIRMATION"
