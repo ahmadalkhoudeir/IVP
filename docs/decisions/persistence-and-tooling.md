@@ -23,9 +23,9 @@ authentication of *staff to the dashboard*, a separate concern from the
 account holder's out-of-band verification — the two must not be conflated
 in code or in the audit log's actor fields.
 
-## Audit-log tamper-evidence scope: in-database hash chain only
+## Audit-log tamper-evidence scope: in-database hash chain, plus external anchoring
 Each audit record embeds the hash of the previous record
-(`src/ivp/audit/log.py`). External anchoring (periodically publishing the
-chain head to a separate write-once store, to defend against an attacker
-with full database access) is a documented future enhancement, not built in
-v1 — noted in `docs/threat-model.md` as a residual risk.
+(`src/ivp/audit/log.py`). The chain head hash is also periodically
+published outside the database (`docs/decisions/audit-anchoring.md`), to
+defend against an attacker with full database access rewriting history
+wholesale — see that ADR for exactly what this does and does not protect.

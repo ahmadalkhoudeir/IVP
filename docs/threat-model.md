@@ -7,6 +7,7 @@
 | Spoofing | SIM swap / number porting defeats SMS/voice OOB | NIST SP 800-63B-4 §3.1.3.3 classifies PSTN-delivered OOB as a restricted authenticator specifically because of this; see channel evaluation below |
 | Spoofing | Staff session hijacking/fixation on the dashboard | HttpOnly, Secure, SameSite cookies; session rotation on login; short session lifetime for the admin role |
 | Tampering | Insider or compromised account edits/deletes audit log entries, including via an admin UI screen | Append-only, hash-chained log; no route of any kind, for any role, ever calls UPDATE/DELETE on audit records — enforced at the repository layer, not just hidden from the UI |
+| Tampering | Attacker with full database access rewrites the audit log wholesale and recomputes every hash forward, so the in-database chain alone would pass `verify_integrity()` | Chain head hash is periodically published to a store outside the database (`docs/decisions/audit-anchoring.md`); a later rewrite can no longer match a checkpoint published before it happened |
 | Tampering | Replayed confirmation token reused against a different ticket | Single-use, ticket+nonce-bound token; atomic check-and-invalidate |
 | Repudiation | Agent or account holder later denies the request/approval | Full audit record (ticket ID, actor ID, action, channel, timestamps, outcome); hash chain makes the record's position in time tamper-evident |
 | Information Disclosure | Audit log or ticket payload leaks PII/secrets; supervisor/admin views over-expose data | Synthetic data only; store channel type + hashed channel identifier, not raw phone/email; supervisor view scoped to their own team, not global |
@@ -14,12 +15,17 @@
 | Elevation of Privilege | Agent or supervisor account reaches admin-only routes (enrollment/adapter config, user management) | Every route checks role server-side via a central FastAPI dependency (`src/ivp/auth/deps.py`); never duplicated ad hoc per view |
 | Elevation of Privilege | Admin override becomes a de facto bypass of requirement 3 if not tightly scoped | Restricted to the admin role only (not supervisor); writes its own distinct `ADMIN_OVERRIDE` audit record with a required reason — see `docs/decisions/admin-override.md` |
 
-## Residual risk, documented not built in v1
-- **Audit log external anchoring.** The hash chain is self-consistent but
-  lives in the same database an attacker with full DB access could rewrite
-  wholesale (recomputing every hash forward). External anchoring (e.g.
-  periodically publishing the chain head hash to a separate write-once
-  store) would close this gap. See `docs/decisions/persistence-and-tooling.md`.
+## Residual risk after external anchoring
+Anchoring (`docs/decisions/audit-anchoring.md`) protects everything up to
+the most recently published checkpoint, not records appended after it —
+narrowing that window is a matter of checkpointing frequently, not
+something a single checkpoint fixes retroactively. It also isn't a real
+security boundary in this project as built: the anchor store is a
+demo-grade local file, not a genuinely separate system an attacker with
+filesystem access couldn't also reach. A production deployment would
+publish checkpoints to something the database administrator does not
+control — a separate signing/timestamping service, a WORM object store, or
+a public transparency log.
 
 ## Out-of-band channel evaluation
 

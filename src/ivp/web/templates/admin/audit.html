@@ -5,7 +5,46 @@
   <h2>Full audit log</h2>
   <p class="muted">Append-only, hash-chained. No update/delete path exists for any role.</p>
 </div>
+
 <div class="card">
+  <h3>External anchoring</h3>
+  <p class="muted">
+    A published checkpoint (sequence, chain head hash) is stored outside this database — see
+    docs/decisions/audit-anchoring.md. Even a full, internally-consistent rewrite of the database
+    can no longer match a checkpoint published before the rewrite. "Verify against anchors" checks
+    the in-database hash chain against itself AND every published checkpoint against the live log,
+    right now.
+  </p>
+  <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+    <form method="post" action="/admin/audit/checkpoint">
+      <button type="submit" class="secondary">Create checkpoint now</button>
+    </form>
+    <form method="post" action="/admin/audit/verify">
+      <button type="submit">Verify against anchors</button>
+    </form>
+  </div>
+  {% if checkpoints %}
+  <div class="overflow-x">
+  <table>
+    <thead><tr><th>Sequence up to</th><th>Chain hash</th><th>Published</th></tr></thead>
+    <tbody>
+      {% for c in checkpoints %}
+      <tr>
+        <td>{{ c.sequence_up_to }}</td>
+        <td><span class="code">{{ c.chain_hash[:16] }}…</span></td>
+        <td>{{ c.published_at }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p class="muted">No checkpoints published yet.</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h3>Records</h3>
   {% include "partials/audit_table.html" %}
 </div>
 {% endblock %}

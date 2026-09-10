@@ -8,6 +8,7 @@ services:
       # IVP_SEED_DEMO_DATA=false before this is anything but a local demo.
       IVP_SESSION_SECRET: demo-only-change-me-before-any-real-use
       IVP_DATABASE_PATH: /app/demo_data/ivp.db
+      IVP_ANCHOR_LOG_PATH: /app/demo_data/anchor_log.jsonl
       IVP_CONFIRMATION_TIMEOUT_SECONDS: "240"
       IVP_MAX_CONFIRMATION_ATTEMPTS: "3"
       IVP_SEED_DEMO_DATA: "true"

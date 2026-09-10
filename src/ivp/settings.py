@@ -21,6 +21,7 @@ class Settings:
     confirmation_timeout: timedelta
     max_confirmation_attempts: int
     seed_demo_data: bool
+    anchor_log_path: str
 
 
 def load_settings() -> Settings:
@@ -32,4 +33,5 @@ def load_settings() -> Settings:
         ),
         max_confirmation_attempts=int(os.environ.get("IVP_MAX_CONFIRMATION_ATTEMPTS", "3")),
         seed_demo_data=os.environ.get("IVP_SEED_DEMO_DATA", "true").lower() == "true",
+        anchor_log_path=os.environ.get("IVP_ANCHOR_LOG_PATH", "./demo_data/anchor_log.jsonl"),
     )

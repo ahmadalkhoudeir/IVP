@@ -5,6 +5,7 @@ auth/deps.py) can reach them without a global.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -12,6 +13,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from ivp.adapters.anchoring.local_file import LocalFileAnchorAdapter
 from ivp.adapters.notification.mock_pstn import MockPstnAdapter
 from ivp.adapters.notification.mock_push import MockPushAdapter
 from ivp.adapters.ticketing.sqlite_backed import SqlitePersistedTicketingAdapter
@@ -23,6 +25,7 @@ from ivp.db.sqlite_channel_repository import SqliteChannelRepository
 from ivp.db.sqlite_staff_repository import SqliteStaffRepository
 from ivp.db.sqlite_ticket_repository import SqliteTicketRepository
 from ivp.db.sqlite_verification_repository import SqliteVerificationRepository
+from ivp.services.anchor_service import AuditAnchorService
 from ivp.services.demo_seed import seed_if_empty
 from ivp.services.verification_service import VerificationOrchestrator
 from ivp.settings import load_settings
@@ -63,6 +66,11 @@ def create_app() -> FastAPI:
     if settings.seed_demo_data:
         seed_if_empty(staff_repo, channel_repo)
 
+    anchor_service = AuditAnchorService(
+        audit_log=audit_log, anchor_adapter=LocalFileAnchorAdapter(settings.anchor_log_path)
+    )
+    anchor_service.checkpoint_if_new_records(now=datetime.now(UTC))
+
     app.state.settings = settings
     app.state.conn = conn
     app.state.audit_log = audit_log
@@ -73,6 +81,7 @@ def create_app() -> FastAPI:
     app.state.closure_gate = closure_gate
     app.state.ticketing = ticketing
     app.state.orchestrator = orchestrator
+    app.state.anchor_service = anchor_service
     app.state.templates = Jinja2Templates(directory=str(BASE_DIR / "web" / "templates"))
 
     app.mount("/static", StaticFiles(directory=str(BASE_DIR / "web" / "static")), name="static")

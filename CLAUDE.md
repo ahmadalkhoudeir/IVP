@@ -27,6 +27,9 @@ Do not violate any of these without writing a new file in
 4. The audit log is append-only and hash-chained. No UPDATE/DELETE path is
    ever exposed, for any role, anywhere in the codebase. Every record:
    ticket ID, actor ID, requested action, channel used, timestamps, outcome.
+   The chain head is also periodically anchored outside the database
+   (`docs/decisions/audit-anchoring.md`) so a full rewrite-and-recompute of
+   the database alone can't pass as untampered.
 5. Target end-to-end verification time under 30 seconds for the happy path.
    This is a UX target, not a safe timeout to abandon a live caller — the
    actual PENDING_CONFIRMATION timeout is configurable

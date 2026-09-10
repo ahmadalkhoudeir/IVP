@@ -6,12 +6,14 @@ from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
 
 from ivp.adapters.ticketing.interface import TicketNotFound
+from ivp.audit.log import TamperDetected
 from ivp.auth.deps import require_permission
 from ivp.auth.passwords import hash_password
 from ivp.auth.roles import Permission, Role
 from ivp.core.models import ChannelType
 from ivp.core.ticket import ClosureBlocked
 from ivp.db.sqlite_staff_repository import StaffUser, UsernameAlreadyExists
+from ivp.services.anchor_service import AnchorVerificationFailed
 
 router = APIRouter(prefix="/admin")
 
@@ -38,8 +40,48 @@ def full_audit(
 ):
     templates = request.app.state.templates
     records = request.app.state.audit_log.all_records()
+    checkpoints = request.app.state.anchor_service.anchor_adapter.list_checkpoints()
     return templates.TemplateResponse(
-        request, "admin/audit.html", {"current_user": user, "records": records}
+        request,
+        "admin/audit.html",
+        {"current_user": user, "records": records, "checkpoints": checkpoints},
+    )
+
+
+@router.post("/audit/checkpoint")
+def create_checkpoint(
+    request: Request, user: StaffUser = Depends(_require(Permission.VIEW_ALL_AUDIT_LOG))
+):
+    receipt = request.app.state.anchor_service.checkpoint_if_new_records(now=datetime.now(UTC))
+    if receipt is None:
+        return RedirectResponse(
+            url="/admin/audit?error=Nothing+new+to+checkpoint", status_code=303
+        )
+    return RedirectResponse(
+        url=f"/admin/audit?success=Checkpoint+published+through+sequence+{receipt.sequence_up_to}",
+        status_code=303,
+    )
+
+
+@router.post("/audit/verify")
+def verify_anchors(
+    request: Request, user: StaffUser = Depends(_require(Permission.VIEW_ALL_AUDIT_LOG))
+):
+    """Runs both tamper checks available: verify_integrity() catches a
+    record whose content no longer matches its own stored hash (a naive
+    edit); verify_against_anchors() catches a full, internally-consistent
+    rewrite that recomputed every hash forward — see
+    docs/decisions/audit-anchoring.md for why both are needed."""
+    try:
+        request.app.state.audit_log.verify_integrity()
+        request.app.state.anchor_service.verify_against_anchors()
+    except (TamperDetected, AnchorVerificationFailed) as exc:
+        return RedirectResponse(
+            url=f"/admin/audit?error=TAMPERING+DETECTED:+{exc}", status_code=303
+        )
+    return RedirectResponse(
+        url="/admin/audit?success=All+published+checkpoints+match+the+live+log",
+        status_code=303,
     )
 
 

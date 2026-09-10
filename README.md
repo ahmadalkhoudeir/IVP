@@ -30,6 +30,11 @@ below.
 - RBAC enforced server-side on every route; a ticket-closure override
   exists only for admins, requires a reason, and writes its own distinct
   audit outcome (`ADMIN_OVERRIDE`) rather than a synthetic approval.
+- The audit log's hash-chain head is periodically anchored outside the
+  database (`docs/decisions/audit-anchoring.md`), so a full rewrite of the
+  database that recomputes every hash forward still doesn't pass
+  verification — `/admin/audit` has "Create checkpoint now" and "Verify
+  against anchors" actions.
 
 ## Stack
 Python + FastAPI, Jinja2 + htmx (no separate JS framework — htmx is
@@ -51,11 +56,10 @@ automatically on first run when `IVP_SEED_DEMO_DATA=true`, the default).
 ```bash
 docker compose up --build
 ```
-This has been reviewed but not run in this environment (Docker isn't
-available here) — the image build follows a standard `uv sync --frozen`
-pattern and the app itself has been run and manually exercised outside a
-container. Please verify `docker compose up` on your machine before relying
-on it, and open an issue/note if it doesn't build cleanly.
+Verified: built and ran via `colima` + `docker compose` (Docker isn't
+preinstalled in the dev environment this was built in). Confirmed the full
+happy-path flow works inside the container exactly as it does locally, and
+that ticket data survives a `docker compose restart` via the named volume.
 
 **Tests:**
 ```bash
@@ -75,6 +79,12 @@ uv run ruff check src tests
    blocked until an admin (`admin1`) records an override with a reason, or
    enrolls a channel for her at `/admin/subscribers` (deliberately not
    linked from the ticket flow — see hard requirement 2).
+6. As `admin1`, visit `/admin/audit` and click "Create checkpoint now",
+   then "Verify against anchors" — it should report a match. To see it
+   catch tampering, stop the app, edit a row in the SQLite database
+   directly (e.g. `sqlite3 demo_data/ivp.db "UPDATE audit_log SET outcome='DENIED' WHERE sequence=0"` —
+   this only works if you've dropped the anti-tamper triggers, since they
+   reject it by design), restart, and verify again.
 
 ## Status of NIST/CISA alignment claims
 This project cites NIST SP 800-63A-4, NIST SP 800-63B-4, and CISA guidance
@@ -82,7 +92,10 @@ for its identity-verification design choices. See `docs/threat-model.md` for
 the specific citations and an explicit caveat on how they were verified.
 
 ## What's not built yet
-- External anchoring for the audit log's hash chain (documented as a
-  residual risk in `docs/threat-model.md`, not implemented in v1).
 - Cooling-off notice to existing channels when a new one is enrolled for the
   same subscriber (noted as a simplification on the enrollment page itself).
+- A real external anchor store. The anchoring implemented here
+  (`docs/decisions/audit-anchoring.md`) uses a local file kept outside the
+  database, which demonstrates the pattern and is genuinely testable, but
+  is not itself a security boundary — see that ADR for what a production
+  deployment would need instead.

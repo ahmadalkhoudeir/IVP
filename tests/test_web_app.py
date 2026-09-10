@@ -10,12 +10,13 @@ from fastapi.testclient import TestClient
 
 
 @pytest.fixture
-def client(monkeypatch):
+def client(monkeypatch, tmp_path):
     monkeypatch.setenv("IVP_DATABASE_PATH", ":memory:")
     monkeypatch.setenv("IVP_SESSION_SECRET", "test-secret")
     monkeypatch.setenv("IVP_SEED_DEMO_DATA", "true")
     monkeypatch.setenv("IVP_CONFIRMATION_TIMEOUT_SECONDS", "240")
     monkeypatch.setenv("IVP_MAX_CONFIRMATION_ATTEMPTS", "3")
+    monkeypatch.setenv("IVP_ANCHOR_LOG_PATH", str(tmp_path / "anchor_log.jsonl"))
 
     from ivp.main import create_app
 
@@ -224,3 +225,73 @@ def test_enrolling_a_channel_unblocks_a_previously_no_channel_subscriber(client:
     detail = client.get(create_resp.headers["location"])
     assert "PENDING_CONFIRMATION" in detail.text
     assert "NO_CHANNEL_BLOCKED" not in detail.text
+
+
+def test_create_checkpoint_and_verify_via_admin_audit_page(client: TestClient):
+    login(client, "agent1", "agent-demo-pass-1")
+    create_resp = client.post(
+        "/agent/tickets",
+        data={"subscriber_id": "sub-alice", "requested_action": "PASSWORD_RESET"},
+        follow_redirects=False,
+    )
+    ticket_url = create_resp.headers["location"]
+    detail = client.get(ticket_url)
+    code, attempt_id = _extract_code_and_attempt_id(detail.text)
+    client.post(f"/confirm/{attempt_id}", data={"selected_code": code})
+
+    client.post("/logout")
+    login(client, "admin1", "admin-demo-pass-1")
+
+    audit_page = client.get("/admin/audit")
+    assert "No checkpoints published yet" in audit_page.text
+
+    checkpoint_resp = client.post("/admin/audit/checkpoint", follow_redirects=False)
+    assert "Checkpoint+published" in checkpoint_resp.headers["location"]
+
+    audit_page = client.get("/admin/audit")
+    assert "No checkpoints published yet" not in audit_page.text
+
+    verify_resp = client.post("/admin/audit/verify", follow_redirects=False)
+    assert "checkpoints+match" in verify_resp.headers["location"]
+
+
+def test_checkpoint_is_a_noop_with_nothing_new(client: TestClient):
+    login(client, "admin1", "admin-demo-pass-1")
+    resp = client.post("/admin/audit/checkpoint", follow_redirects=False)
+    assert "Nothing+new" in resp.headers["location"]
+
+
+def test_agent_cannot_reach_checkpoint_or_verify_routes(client: TestClient):
+    login(client, "agent1", "agent-demo-pass-1")
+    assert client.post("/admin/audit/checkpoint").status_code == 403
+    assert client.post("/admin/audit/verify").status_code == 403
+
+
+def test_verify_against_anchors_detects_tampering_via_the_admin_route(client: TestClient):
+    login(client, "agent1", "agent-demo-pass-1")
+    create_resp = client.post(
+        "/agent/tickets",
+        data={"subscriber_id": "sub-alice", "requested_action": "PASSWORD_RESET"},
+        follow_redirects=False,
+    )
+    ticket_url = create_resp.headers["location"]
+    detail = client.get(ticket_url)
+    code, attempt_id = _extract_code_and_attempt_id(detail.text)
+    client.post(f"/confirm/{attempt_id}", data={"selected_code": code})
+
+    client.post("/logout")
+    login(client, "admin1", "admin-demo-pass-1")
+    client.post("/admin/audit/checkpoint")
+
+    # Simulate an attacker with raw database access rewriting a row after
+    # the checkpoint was published — bypassing both the Python class (no
+    # update method exists) and the SQL trigger (dropped here to simulate a
+    # lower-level rewrite, e.g. direct file manipulation), exactly as
+    # test_sqlite_audit_log.py's trigger-bypass test does.
+    conn = client.app.state.conn
+    conn.execute("DROP TRIGGER audit_log_no_update")
+    conn.execute("UPDATE audit_log SET outcome = 'DENIED' WHERE sequence = 0")
+    conn.commit()
+
+    verify_resp = client.post("/admin/audit/verify", follow_redirects=False)
+    assert "TAMPERING+DETECTED" in verify_resp.headers["location"]
