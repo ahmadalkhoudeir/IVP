@@ -82,6 +82,7 @@ CREATE INDEX IF NOT EXISTS idx_channel_enrollments_subscriber
 CREATE TABLE IF NOT EXISTS verification_attempts (
     id TEXT PRIMARY KEY,
     ticket_id TEXT NOT NULL,
+    requested_action TEXT NOT NULL,
     channel_id TEXT,
     code TEXT NOT NULL,
     state TEXT NOT NULL,
