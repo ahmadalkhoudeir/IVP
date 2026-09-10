@@ -27,6 +27,12 @@ class Permission(StrEnum):
     VIEW_ALL_AUDIT_LOG = "VIEW_ALL_AUDIT_LOG"
     MANAGE_STAFF_ACCOUNTS = "MANAGE_STAFF_ACCOUNTS"
     MANAGE_ADAPTER_CONFIG = "MANAGE_ADAPTER_CONFIG"
+    # Deliberately admin-only, not agent: hard requirement 2 says nothing in
+    # a live ticket/call may supply or change the destination channel.
+    # Keeping enrollment out of the agent's permission set entirely (rather
+    # than just out of the ticket UI) makes that a role boundary, not just
+    # a missing button.
+    MANAGE_CHANNEL_ENROLLMENTS = "MANAGE_CHANNEL_ENROLLMENTS"
     # Restricted to admin only per docs/decisions/admin-override.md —
     # supervisors do NOT get this permission.
     ADMIN_OVERRIDE_TICKET = "ADMIN_OVERRIDE_TICKET"
@@ -51,6 +57,7 @@ _ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
             Permission.VIEW_ALL_AUDIT_LOG,
             Permission.MANAGE_STAFF_ACCOUNTS,
             Permission.MANAGE_ADAPTER_CONFIG,
+            Permission.MANAGE_CHANNEL_ENROLLMENTS,
             Permission.ADMIN_OVERRIDE_TICKET,
         }
     ),

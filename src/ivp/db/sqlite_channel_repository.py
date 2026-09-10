@@ -81,6 +81,12 @@ class SqliteChannelRepository:
         ).fetchone()
         return self._row_to_enrollment(row) if row else None
 
+    def list_distinct_subscribers(self) -> list[str]:
+        rows = self._conn.execute(
+            "SELECT DISTINCT subscriber_id FROM channel_enrollments ORDER BY subscriber_id"
+        ).fetchall()
+        return [row["subscriber_id"] for row in rows]
+
     @staticmethod
     def _row_to_enrollment(row: sqlite3.Row) -> ChannelEnrollment:
         return ChannelEnrollment(

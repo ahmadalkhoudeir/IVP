@@ -67,6 +67,12 @@ class SqliteTicketRepository:
         rows = self._conn.execute("SELECT * FROM tickets ORDER BY created_at DESC").fetchall()
         return [self._row_to_ticket(row) for row in rows]
 
+    def list_distinct_subscribers(self) -> list[str]:
+        rows = self._conn.execute(
+            "SELECT DISTINCT subscriber_id FROM tickets ORDER BY subscriber_id"
+        ).fetchall()
+        return [row["subscriber_id"] for row in rows]
+
     @staticmethod
     def _row_to_ticket(row: sqlite3.Row) -> Ticket:
         return Ticket(

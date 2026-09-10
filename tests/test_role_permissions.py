@@ -32,8 +32,18 @@ def test_admin_permissions_are_exactly_expected():
         Permission.VIEW_ALL_AUDIT_LOG,
         Permission.MANAGE_STAFF_ACCOUNTS,
         Permission.MANAGE_ADAPTER_CONFIG,
+        Permission.MANAGE_CHANNEL_ENROLLMENTS,
         Permission.ADMIN_OVERRIDE_TICKET,
     }
+
+
+@pytest.mark.parametrize("role", [Role.AGENT, Role.SUPERVISOR])
+def test_channel_enrollment_permission_is_exclusive_to_admin(role):
+    """Hard requirement 2: nothing in a live ticket/call may supply or
+    change the destination channel. Keeping this out of the agent's
+    permission set entirely (not just out of the ticket UI) makes it a
+    role boundary, not a missing button."""
+    assert not has_permission(role, Permission.MANAGE_CHANNEL_ENROLLMENTS)
 
 
 @pytest.mark.parametrize("role", [Role.AGENT, Role.SUPERVISOR])

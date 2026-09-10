@@ -72,7 +72,9 @@ uv run ruff check src tests
    tab, and select the matching code.
 4. Back on the ticket page, authorize the action and close the ticket.
 5. Try the same flow with `sub-carol` (no enrolled channel) — closure is
-   blocked until an admin (`admin1`) records an override with a reason.
+   blocked until an admin (`admin1`) records an override with a reason, or
+   enrolls a channel for her at `/admin/subscribers` (deliberately not
+   linked from the ticket flow — see hard requirement 2).
 
 ## Status of NIST/CISA alignment claims
 This project cites NIST SP 800-63A-4, NIST SP 800-63B-4, and CISA guidance
@@ -82,6 +84,5 @@ the specific citations and an explicit caveat on how they were verified.
 ## What's not built yet
 - External anchoring for the audit log's hash chain (documented as a
   residual risk in `docs/threat-model.md`, not implemented in v1).
-- A dedicated channel-enrollment UI (enrollments exist in the schema and
-  are seeded as demo data, but there's no staff- or holder-facing screen to
-  create one).
+- Cooling-off notice to existing channels when a new one is enrolled for the
+  same subscriber (noted as a simplification on the enrollment page itself).

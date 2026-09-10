@@ -71,3 +71,38 @@ def test_has_any_enrollment_true_after_enrolling():
 def test_fingerprint_is_deterministic_and_collision_resistant_in_practice():
     assert fingerprint("same-input") == fingerprint("same-input")
     assert fingerprint("input-a") != fingerprint("input-b")
+
+
+def test_list_distinct_subscribers_returns_each_once():
+    conn = connect(":memory:")
+    repo = SqliteChannelRepository(conn)
+    repo.enroll(
+        subscriber_id="sub-1",
+        channel_type=ChannelType.PUSH,
+        label="Phone",
+        destination="push-token-a",
+        now=T0,
+    )
+    repo.enroll(
+        subscriber_id="sub-1",
+        channel_type=ChannelType.PSTN,
+        label="Backup",
+        destination="+15550000000",
+        now=T0,
+    )
+    repo.enroll(
+        subscriber_id="sub-2",
+        channel_type=ChannelType.PUSH,
+        label="Phone",
+        destination="push-token-b",
+        now=T0,
+    )
+    assert repo.list_distinct_subscribers() == ["sub-1", "sub-2"]
+    conn.close()
+
+
+def test_list_distinct_subscribers_empty_when_none_enrolled():
+    conn = connect(":memory:")
+    repo = SqliteChannelRepository(conn)
+    assert repo.list_distinct_subscribers() == []
+    conn.close()

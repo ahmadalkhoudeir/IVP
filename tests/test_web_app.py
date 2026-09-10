@@ -167,3 +167,60 @@ def test_no_channel_blocked_requires_admin_override(client: TestClient):
     audit_page = client.get("/admin/audit")
     assert "ADMIN_OVERRIDE" in audit_page.text
     assert "Identity proofed in person for this test." in audit_page.text
+
+
+def test_admin_can_enroll_a_channel_and_it_shows_on_the_subscribers_page(client: TestClient):
+    login(client, "admin1", "admin-demo-pass-1")
+    resp = client.post(
+        "/admin/subscribers/channels",
+        data={
+            "subscriber_id": "sub-dave",
+            "channel_type": "PUSH",
+            "label": "Dave's phone",
+            "destination": "demo-push-token-dave",
+        },
+        follow_redirects=False,
+    )
+    assert "success" in resp.headers["location"]
+
+    page = client.get("/admin/subscribers")
+    assert "sub-dave" in page.text
+    assert "Dave" in page.text and "phone" in page.text  # Jinja2 escapes the apostrophe
+    # The raw destination must never appear in the rendered page.
+    assert "demo-push-token-dave" not in page.text
+
+
+def test_agent_and_supervisor_cannot_reach_the_enrollment_page(client: TestClient):
+    login(client, "agent1", "agent-demo-pass-1")
+    assert client.get("/admin/subscribers").status_code == 403
+    client.post("/logout")
+
+    login(client, "supervisor1", "supervisor-demo-pass-1")
+    assert client.get("/admin/subscribers").status_code == 403
+
+
+def test_enrolling_a_channel_unblocks_a_previously_no_channel_subscriber(client: TestClient):
+    """Full circle: sub-carol starts with no enrolled channel (NO_CHANNEL_BLOCKED
+    in the demo seed), the admin enrolls one via the new screen, and a fresh
+    ticket for her now goes through PENDING_CONFIRMATION instead."""
+    login(client, "admin1", "admin-demo-pass-1")
+    client.post(
+        "/admin/subscribers/channels",
+        data={
+            "subscriber_id": "sub-carol",
+            "channel_type": "PUSH",
+            "label": "Carol's new phone",
+            "destination": "demo-push-token-carol",
+        },
+    )
+    client.post("/logout")
+
+    login(client, "agent1", "agent-demo-pass-1")
+    create_resp = client.post(
+        "/agent/tickets",
+        data={"subscriber_id": "sub-carol", "requested_action": "PASSWORD_RESET"},
+        follow_redirects=False,
+    )
+    detail = client.get(create_resp.headers["location"])
+    assert "PENDING_CONFIRMATION" in detail.text
+    assert "NO_CHANNEL_BLOCKED" not in detail.text

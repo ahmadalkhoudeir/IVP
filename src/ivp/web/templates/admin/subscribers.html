@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Channel enrollments — IVP{% endblock %}
+{% block content %}
+<div class="card">
+  <h2>Channel enrollments</h2>
+  <p class="muted">
+    Hard requirement 2: confirmation channels must be enrolled here, before any call — nothing on
+    a ticket lets an agent supply or change a destination. This page is intentionally not linked
+    from anywhere in the ticket flow.
+  </p>
+  <p class="demo-warning">
+    Simplification for this demo: enrolling a new channel takes effect immediately. A production
+    system should also notify any existing enrolled channels when a new one is added, with a
+    cooling-off period before the new channel becomes usable — see docs/threat-model.md
+    (Spoofing: attacker asks to change the enrolled channel).
+  </p>
+</div>
+
+<div class="card">
+  <h3>Subscribers</h3>
+  {% if subscribers %}
+  <table>
+    <thead><tr><th>Subscriber</th><th>Enrolled channels</th></tr></thead>
+    <tbody>
+      {% for s in subscribers %}
+      <tr>
+        <td>{{ s.id }}</td>
+        <td>
+          {% if s.channels %}
+            {% for c in s.channels %}
+              <span class="badge pending">{{ c.channel_type.value }}</span> {{ c.label }}<br>
+            {% endfor %}
+          {% else %}
+            <span class="badge no-channel">none enrolled</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">No subscribers on record yet — they appear here once a ticket references
+  them or a channel is enrolled for them.</p>
+  {% endif %}
+</div>
+
+<div class="card" style="max-width: 480px;">
+  <h3>Enroll a channel</h3>
+  <form method="post" action="/admin/subscribers/channels">
+    <label for="subscriber_id">Subscriber ID</label>
+    <input type="text" id="subscriber_id" name="subscriber_id" required placeholder="sub-carol">
+
+    <label for="channel_type">Channel type</label>
+    <select id="channel_type" name="channel_type" required>
+      {% for ct in channel_types %}
+      <option value="{{ ct.value }}">{{ ct.value }}</option>
+      {% endfor %}
+    </select>
+
+    <label for="label">Label (for staff display only)</label>
+    <input type="text" id="label" name="label" required placeholder="Carol's phone">
+
+    <label for="destination">Destination (synthetic only — never a real number/token)</label>
+    <input type="text" id="destination" name="destination" required
+           placeholder="demo-push-token-carol">
+    <p class="muted" style="font-size: 0.85rem;">
+      Only a fingerprint hash of this value is stored (see
+      src/ivp/db/sqlite_channel_repository.py) — the raw value is never persisted.
+    </p>
+
+    <button type="submit" style="margin-top: 0.5rem;">Enroll channel</button>
+  </form>
+</div>
+{% endblock %}

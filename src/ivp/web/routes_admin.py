@@ -9,6 +9,7 @@ from ivp.adapters.ticketing.interface import TicketNotFound
 from ivp.auth.deps import require_permission
 from ivp.auth.passwords import hash_password
 from ivp.auth.roles import Permission, Role
+from ivp.core.models import ChannelType
 from ivp.core.ticket import ClosureBlocked
 from ivp.db.sqlite_staff_repository import StaffUser, UsernameAlreadyExists
 
@@ -89,6 +90,51 @@ def adapter_info(
             "timeout_seconds": int(orchestrator.timeout.total_seconds()),
         },
     )
+
+
+@router.get("/subscribers")
+def list_subscribers(
+    request: Request, user: StaffUser = Depends(_require(Permission.MANAGE_CHANNEL_ENROLLMENTS))
+):
+    """Deliberately not reachable from any ticket/call route (no ticket_id
+    anywhere in this path) — hard requirement 2 says channel enrollment
+    must be a separate, out-of-band process, not something that happens
+    mid-call."""
+    templates = request.app.state.templates
+    channel_repo = request.app.state.channel_repo
+    ticket_repo = request.app.state.ticket_repo
+
+    subscriber_ids = sorted(
+        set(channel_repo.list_distinct_subscribers()) | set(ticket_repo.list_distinct_subscribers())
+    )
+    subscribers = [
+        {"id": sub_id, "channels": channel_repo.list_for_subscriber(sub_id)}
+        for sub_id in subscriber_ids
+    ]
+    return templates.TemplateResponse(
+        request,
+        "admin/subscribers.html",
+        {"current_user": user, "subscribers": subscribers, "channel_types": list(ChannelType)},
+    )
+
+
+@router.post("/subscribers/channels")
+def enroll_channel(
+    request: Request,
+    subscriber_id: str = Form(...),
+    channel_type: str = Form(...),
+    label: str = Form(...),
+    destination: str = Form(...),
+    user: StaffUser = Depends(_require(Permission.MANAGE_CHANNEL_ENROLLMENTS)),
+):
+    request.app.state.channel_repo.enroll(
+        subscriber_id=subscriber_id.strip(),
+        channel_type=ChannelType(channel_type),
+        label=label,
+        destination=destination,
+        now=datetime.now(UTC),
+    )
+    return RedirectResponse(url="/admin/subscribers?success=Channel+enrolled", status_code=303)
 
 
 @router.get("/tickets/{ticket_id}/override")
