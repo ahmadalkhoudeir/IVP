@@ -68,6 +68,40 @@ class TamperDetected(Exception):
         super().__init__(f"audit log tampered at sequence {sequence}: {reason}")
 
 
+def verify_chain(records: list[AuditRecord]) -> None:
+    """Shared by AuditLog and any persistence-backed implementation (e.g.
+    SqliteAuditLog in src/ivp/db/) so tamper detection is defined once, not
+    reimplemented per backend. `records` must be in ascending sequence
+    order."""
+    expected_prev = GENESIS_HASH
+    for record in records:
+        if record.prev_hash != expected_prev:
+            raise TamperDetected(
+                record.sequence,
+                f"prev_hash {record.prev_hash!r} does not match preceding "
+                f"record's hash {expected_prev!r}",
+            )
+        recomputed = compute_record_hash(
+            sequence=record.sequence,
+            ticket_id=record.ticket_id,
+            actor_id=record.actor_id,
+            actor_role=record.actor_role,
+            requested_action=record.requested_action,
+            channel_type=record.channel_type,
+            outcome=record.outcome,
+            timestamp=record.timestamp,
+            reason=record.reason,
+            prev_hash=record.prev_hash,
+        )
+        if recomputed != record.record_hash:
+            raise TamperDetected(
+                record.sequence,
+                "stored record_hash does not match recomputed hash "
+                "(record contents were altered after being written)",
+            )
+        expected_prev = record.record_hash
+
+
 @dataclass
 class AuditLog:
     """In-memory, hash-chained audit log. A persistence-backed repository
@@ -136,30 +170,4 @@ class AuditLog:
         not match a fresh recomputation from its own fields and the
         preceding record's hash. Returns None (no exception) if the whole
         chain is intact."""
-        expected_prev = GENESIS_HASH
-        for record in self._records:
-            if record.prev_hash != expected_prev:
-                raise TamperDetected(
-                    record.sequence,
-                    f"prev_hash {record.prev_hash!r} does not match preceding "
-                    f"record's hash {expected_prev!r}",
-                )
-            recomputed = compute_record_hash(
-                sequence=record.sequence,
-                ticket_id=record.ticket_id,
-                actor_id=record.actor_id,
-                actor_role=record.actor_role,
-                requested_action=record.requested_action,
-                channel_type=record.channel_type,
-                outcome=record.outcome,
-                timestamp=record.timestamp,
-                reason=record.reason,
-                prev_hash=record.prev_hash,
-            )
-            if recomputed != record.record_hash:
-                raise TamperDetected(
-                    record.sequence,
-                    "stored record_hash does not match recomputed hash "
-                    "(record contents were altered after being written)",
-                )
-            expected_prev = record.record_hash
+        verify_chain(self._records)
