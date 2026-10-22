@@ -1,0 +1,28 @@
+# Render Blueprint: one-click deploy of the public demo.
+# https://render.com/docs/blueprint-spec
+#
+# Free plan: the service sleeps after inactivity (first request takes about
+# a minute) and has no persistent disk, so the SQLite demo database and the
+# anchor log reset on every redeploy or restart. Fine for a portfolio demo,
+# not for real use.
+services:
+  - type: web
+    name: ivp-demo
+    runtime: docker
+    plan: free
+    healthCheckPath: /login
+    envVars:
+      - key: IVP_SESSION_SECRET
+        generateValue: true
+      - key: IVP_DATABASE_PATH
+        value: /app/demo_data/ivp.db
+      - key: IVP_ANCHOR_LOG_PATH
+        value: /app/demo_data/anchor_log.jsonl
+      - key: IVP_SEED_DEMO_DATA
+        value: "true"
+      - key: IVP_CONFIRMATION_TIMEOUT_SECONDS
+        value: "240"
+      - key: IVP_MAX_CONFIRMATION_ATTEMPTS
+        value: "3"
+      - key: IVP_ENROLLMENT_COOLING_OFF_HOURS
+        value: "24"

@@ -13,4 +13,7 @@ ENV PATH="/app/.venv/bin:${PATH}"
 
 EXPOSE 8000
 
-CMD ["uvicorn", "ivp.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# PORT is set by hosts such as Render; 8000 locally. --proxy-headers makes the
+# app see https behind a TLS-terminating proxy, so the session cookie gets
+# the Secure flag.
+CMD ["sh", "-c", "uvicorn ivp.main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips='*'"]

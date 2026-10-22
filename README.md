@@ -89,6 +89,16 @@ preinstalled in the dev environment this was built in). Confirmed the full
 happy-path flow works inside the container exactly as it does locally, and
 that ticket data survives a `docker compose restart` via the named volume.
 
+**Deploy a public demo (Render, free):** this repo includes a Render
+Blueprint (`render.yaml`). In Render, choose New > Blueprint, connect this
+GitHub repository, and click Apply. Render builds the Dockerfile, generates
+a random session secret, and gives you an `https://...onrender.com` URL.
+On the free plan the service sleeps when idle (the first request takes
+about a minute) and the demo database resets on every restart.
+
+The demo accounts below are public by design, so anyone with the URL can
+log in as any role. Everything they can touch is synthetic demo data.
+
 **Tests:**
 ```bash
 uv run pytest
