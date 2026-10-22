@@ -14,6 +14,8 @@ Implementation: `src/ivp/core/state_machine.py`. Tests: `tests/test_state_machin
      │
      ├── caller/holder approves from enrolled channel ──> [APPROVED]           (closure-eligible)
      ├── caller/holder denies from enrolled channel ─────> [DENIED]            (closure-eligible)
+     ├── holder reports "I did not request this" ────────> [DENIED]            (closure-eligible;
+     │                                                         audit outcome FRAUD_REPORTED)
      └── timer elapses with no response ──────────────────> [EXPIRED]
                                                                  │
                                                     attempts remaining? ── yes ──> retry() ──> [PENDING_CONFIRMATION]
@@ -44,3 +46,19 @@ Key design points:
   expired confirmation can't be resent indefinitely — indefinite resends
   would themselves be a push-bombing vector against the real account
   holder.
+
+## Before an attempt exists (v1.1)
+
+Some tickets never get an attempt because verification can't start. Each
+case writes an audit record with its reason and leaves the ticket OPEN.
+None of them is closure-eligible:
+
+- `NO_CHANNEL_BLOCKED`: nothing enrolled, or every channel is still in
+  enrollment cooling-off.
+- `RISK_BLOCKED`: every usable channel is PSTN with a SIM-swap or
+  number-port signal.
+- `RATE_LIMITED`: the per-destination send limit refused the send.
+
+The agent can retry with `restart`, which only works while the ticket has
+no attempt and no verification record. See
+`docs/decisions/verification-blocks.md`.

@@ -8,9 +8,11 @@ sensitive ticket cannot be closed without a verification record attached.
 
 Self-hosted browser dashboard with three RBAC roles (agent, supervisor,
 admin) plus a separate "holder console" that simulates the account
-holder's own device — see `docs/state-machine.md` and `docs/threat-model.md`
-for the design, and `docs/decisions/` for the reasoning behind each choice
-below.
+holder's own device. See `docs/architecture.md`, `docs/state-machine.md`
+and `docs/threat-model.md` for the design, and `docs/decisions/` for the
+reasoning behind each choice below.
+
+For a non-technical overview, read `docs/portfolio-writeup.md`.
 
 ## Design highlights
 - No knowledge-based verification anywhere (NIST SP 800-63A-4 §2.5.1).
@@ -35,6 +37,32 @@ below.
   database that recomputes every hash forward still doesn't pass
   verification — `/admin/audit` has "Create checkpoint now" and "Verify
   against anchors" actions.
+
+### New in v1.1
+- **"I did not request this."** The holder can report an unrequested
+  prompt. The attempt is denied, recorded as `FRAUD_REPORTED`, and flagged
+  on supervisor and admin dashboards (`docs/decisions/fraud-reporting.md`).
+- **SIM-swap / number-port check.** PSTN channels with a carrier risk
+  signal are never used (`RISK_BLOCKED`); push is used instead when the
+  subscriber has one. The carrier feed is simulated.
+- **Enrollment cooling-off.** Adding a channel notifies the existing ones
+  (NIST SP 800-63B-4 §4.1.2.1), holds the new one for 24 hours, and writes a
+  `CHANNEL_ENROLLED` audit record (`docs/decisions/enrollment-cooling-off.md`).
+- **Graceful blocks.** A tripped push-bombing rate limit is recorded as
+  `RATE_LIMITED` and explained to the agent instead of crashing; blocked
+  tickets have a "Try verification again" button.
+- **Metrics** for supervisors (team) and admins (all): median and
+  90th-percentile time to verify against the 30-second target, how tickets
+  resolved, and a per-agent table.
+- **Verification receipts.** A printable per-ticket page with every audit
+  record's hash and a live integrity and anchor check.
+- **CSV export** of the audit log (formula-injection safe) plus
+  `scripts/verify_audit_csv.py`, a standard-library verifier that recomputes
+  the chain without importing the app.
+- **Hardening:** CSPRNG codes, staff login lockout, 1-hour admin sessions,
+  CSP and anti-framing headers, Origin-based CSRF checks, input validation
+  (`docs/decisions/web-hardening.md`).
+- A pending ticket shows a live countdown to expiry.
 
 ## Stack
 Python + FastAPI, Jinja2 + htmx (no separate JS framework — htmx is
@@ -68,23 +96,57 @@ uv run ruff check src tests
 ```
 
 ## Demo walkthrough
-1. Log in as `agent1`.
-2. Open a ticket for `sub-alice` (has an enrolled push channel) — a
-   confirmation is sent and a 6-digit code is shown to read aloud.
-3. Open the holder-console link on the ticket page (clearly marked DEMO
-   ONLY — a real deployment would never show an agent this link) in another
-   tab, and select the matching code.
-4. Back on the ticket page, authorize the action and close the ticket.
-5. Try the same flow with `sub-carol` (no enrolled channel) — closure is
-   blocked until an admin (`admin1`) records an override with a reason, or
-   enrolls a channel for her at `/admin/subscribers` (deliberately not
-   linked from the ticket flow — see hard requirement 2).
-6. As `admin1`, visit `/admin/audit` and click "Create checkpoint now",
-   then "Verify against anchors" — it should report a match. To see it
-   catch tampering, stop the app, edit a row in the SQLite database
-   directly (e.g. `sqlite3 demo_data/ivp.db "UPDATE audit_log SET outcome='DENIED' WHERE sequence=0"` —
-   this only works if you've dropped the anti-tamper triggers, since they
-   reject it by design), restart, and verify again.
+
+Demo accounts (synthetic, seeded on first run):
+
+| Username | Password | Role |
+|---|---|---|
+| `agent1` | `agent-demo-pass-1` | Agent |
+| `agent2` | `agent-demo-pass-2` | Agent |
+| `supervisor1` | `supervisor-demo-pass-1` | Supervisor |
+| `admin1` | `admin-demo-pass-1` | Admin |
+
+Demo subscribers: `sub-alice` (push), `sub-bob` (SMS), `sub-carol` (no
+channel), `sub-erin` (SMS on a number the simulated carrier says was just
+ported).
+
+1. **Happy path.** Log in as `agent1` and open a ticket for `sub-alice`. A
+   6-digit code appears with a countdown. Open the holder-console link
+   (marked DEMO ONLY: a real deployment would never show an agent this
+   link) in another tab and pick the matching code. Back on the ticket,
+   authorize the action and close it.
+2. **Impersonation.** Open another ticket for `sub-alice`. In the holder
+   console, press "I did not request this". The agent sees a
+   likely-impersonation banner and can't authorize the action.
+3. **SIM swap.** Open a ticket for `sub-erin`. It is `RISK_BLOCKED`, and no
+   SMS is sent.
+4. **No channel.** Open a ticket for `sub-carol`. Closure is blocked until
+   `admin1` records an override with a reason, or enrolls a channel at
+   `/admin/subscribers` (deliberately not linked from the ticket flow; see
+   hard requirement 2) and the agent presses "Try verification again".
+5. **Supervisor view.** Log in as `supervisor1`. The dashboard flags the
+   fraud report. Open **Metrics**, and click a ticket id for its
+   verification receipt.
+6. **Enrollment cooling-off.** As `admin1`, open **Channel enrollments** and
+   add a second channel for `sub-alice`. The page shows a notice sent to
+   Alice's phone and marks the new channel "cooling off". Alice's tickets
+   keep using her phone.
+7. **Tamper evidence.** As `admin1`, open **Full audit log**, click "Create
+   checkpoint now", then "Verify against anchors". It should report a
+   match. Click **Export CSV** and check the file independently:
+
+   ```bash
+   python3 scripts/verify_audit_csv.py ~/Downloads/ivp-audit-*.csv
+   ```
+
+   To see tampering caught, stop the app and edit a row directly. This only
+   works after dropping the anti-tamper triggers, since they reject it by
+   design:
+   `sqlite3 demo_data/ivp.db "DROP TRIGGER audit_log_no_update; UPDATE audit_log SET outcome='DENIED' WHERE sequence=0"`.
+   Restart and verify again, or open any receipt.
+
+Note: five wrong passwords lock a username for 15 minutes. Restarting the
+app clears the lockout.
 
 ## Status of NIST/CISA alignment claims
 This project cites NIST SP 800-63A-4, NIST SP 800-63B-4, and CISA guidance
@@ -92,8 +154,14 @@ for its identity-verification design choices. See `docs/threat-model.md` for
 the specific citations and an explicit caveat on how they were verified.
 
 ## What's not built yet
-- Cooling-off notice to existing channels when a new one is enrolled for the
-  same subscriber (noted as a simplification on the enrollment page itself).
+- A holder-side "this wasn't me" response to an enrollment notice that
+  revokes the new channel (needs a real notification channel with a
+  callback).
+- Per-form CSRF tokens; the Origin check is the current defense
+  (`docs/decisions/web-hardening.md`).
+- Shared storage for the login throttle and send rate limits, and
+  server-side sessions, before running more than one worker
+  (`docs/architecture.md`).
 - A real external anchor store. The anchoring implemented here
   (`docs/decisions/audit-anchoring.md`) uses a local file kept outside the
   database, which demonstrates the pattern and is genuinely testable, but

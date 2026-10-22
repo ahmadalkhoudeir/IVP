@@ -20,3 +20,8 @@ silently drop a sensitive request without an accountable outcome.
 EXPIRED-with-no-retries-left. The ticket-level closure gate (built on top of
 this) must check for a closure-eligible attempt OR an ADMIN_OVERRIDE record
 before allowing any close operation, for any role.
+
+## Amendment (v1.1)
+`FRAUD_REPORTED` also satisfies the closure gate, and it never authorizes
+the action. See `fraud-reporting.md` for why it is a separate outcome
+rather than a plain DENIED.

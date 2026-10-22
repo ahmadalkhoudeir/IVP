@@ -18,12 +18,15 @@ Do not violate any of these without writing a new file in
 2. Confirmation channels are enrolled BEFORE the request. No route, in any
    role including admin, may supply or change the destination channel
    mid-ticket. Channel enrollment/changes are a separate flow with their own
-   verification.
+   verification, audit record, existing-channel notice and cooling-off
+   (`docs/decisions/enrollment-cooling-off.md`).
 3. Ticket closure is blocked until a verification record exists for that
    ticket. Per `docs/decisions/closure-semantics.md`, this means the ticket
    stays OPEN — with no shortcut, even to abandon it — until some record
-   exists: APPROVED, DENIED, a final EXPIRED (retries exhausted), or an
-   ADMIN_OVERRIDE record.
+   exists: APPROVED, DENIED, FRAUD_REPORTED (see
+   `docs/decisions/fraud-reporting.md`), a final EXPIRED (retries
+   exhausted), or an ADMIN_OVERRIDE record. NO_CHANNEL_BLOCKED,
+   RISK_BLOCKED and RATE_LIMITED are not verification records.
 4. The audit log is append-only and hash-chained. No UPDATE/DELETE path is
    ever exposed, for any role, anywhere in the codebase. Every record:
    ticket ID, actor ID, requested action, channel used, timestamps, outcome.
@@ -58,8 +61,11 @@ Do not violate any of these without writing a new file in
 - Dependencies pinned via `uv` (`uv.lock`). Run `uv sync` to install,
   `uv run pytest` to test, `uv add <pkg>` to add a dependency.
 - SQLite by default (`IVP_DATABASE_PATH`), accessed only through the
-  repository interface in `src/ivp/db/repository.py` — never import a
-  driver directly outside `src/ivp/db/`.
+  repository classes in `src/ivp/db/` — never import a driver directly
+  outside `src/ivp/db/`. Schema changes must be additive and go through
+  `_migrate()` in `src/ivp/db/connection.py`; never migrate `audit_log`.
+- Every state-changing request needs a same-host Origin header (CSRF check
+  in `src/ivp/web/security.py`); the test `client` fixture sends one.
 - Docker Compose must run out of the box with mock adapters and seeded
   synthetic demo data (`docker compose up`).
 - Test order for new work: state machine → timeouts → ticket-closure
