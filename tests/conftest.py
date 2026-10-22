@@ -17,5 +17,5 @@ def client(monkeypatch, tmp_path):
     from ivp.main import create_app
 
     app = create_app()
-    with TestClient(app) as test_client:
+    with TestClient(app, headers={"origin": "http://testserver"}) as test_client:
         yield test_client

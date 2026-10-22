@@ -37,7 +37,7 @@ def test_security_headers_on_every_page(client: TestClient):
     resp = client.get("/login")
     assert "frame-ancestors 'none'" in resp.headers["content-security-policy"]
     assert resp.headers["x-frame-options"] == "DENY"
-    assert resp.headers["referrer-policy"] == "no-referrer"
+    assert resp.headers["referrer-policy"] == "same-origin"
     assert resp.headers["cache-control"] == "no-store"
     assert "cache-control" not in client.get("/static/style.css").headers or (
         client.get("/static/style.css").headers["cache-control"] != "no-store"
@@ -52,13 +52,26 @@ def test_cross_site_post_is_rejected_same_site_allowed(client: TestClient):
         follow_redirects=False,
     )
     assert evil.status_code == 403
+    null_origin = client.post("/logout", headers={"origin": "null"}, follow_redirects=False)
+    assert null_origin.status_code == 403
+    referer_only = client.post(
+        "/logout",
+        headers={"origin": "", "referer": "http://testserver/agent"},
+        follow_redirects=False,
+    )
+    assert referer_only.status_code == 303
     ok = client.post(
         "/login",
         data={"username": "agent1", "password": "agent-demo-pass-1"},
-        headers={"origin": "http://testserver"},
         follow_redirects=False,
     )
     assert ok.status_code == 303
+
+
+def test_post_without_origin_or_referer_is_rejected(client: TestClient):
+    """OWASP: a missing Origin is not evidence of a same-origin request."""
+    resp = client.post("/logout", headers={"origin": ""}, follow_redirects=False)
+    assert resp.status_code == 403
 
 
 def test_login_locks_after_repeated_failures_even_with_right_password(client: TestClient):
@@ -128,7 +141,7 @@ def test_ported_number_is_risk_blocked(client: TestClient):
     login(client, *AGENT)
     page = client.get(_open_ticket(client, subscriber="sub-erin"))
     assert "RISK_BLOCKED" in page.text
-    assert "class=\"code-display\"" not in page.text
+    assert 'class="code-display"' not in page.text
 
 
 def test_pending_ticket_shows_countdown(client: TestClient):
