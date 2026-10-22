@@ -23,6 +23,20 @@ class AuditOutcome(StrEnum):
     REJECTED = "REJECTED"  # invalid/replayed confirmation token presented
     NO_CHANNEL_BLOCKED = "NO_CHANNEL_BLOCKED"
     ADMIN_OVERRIDE = "ADMIN_OVERRIDE"
+    # The holder pressed "I did not request this". Treated like DENIED for
+    # closure purposes, but flagged to supervisors/admins as a likely
+    # social-engineering attempt (docs/decisions/fraud-reporting.md).
+    FRAUD_REPORTED = "FRAUD_REPORTED"
+    # The destination-keyed send rate limit (push-bombing defense) refused
+    # to send. Not a verification record: the ticket stays OPEN.
+    RATE_LIMITED = "RATE_LIMITED"
+    # Every enrolled channel was unusable because of a carrier risk signal
+    # (SIM swap / number port, NIST SP 800-63B-4 restricted authenticator
+    # guidance). Not a verification record: needs an ADMIN_OVERRIDE.
+    RISK_BLOCKED = "RISK_BLOCKED"
+    # A new confirmation channel was enrolled for a subscriber. Not tied to
+    # a ticket; ticket_id is an "ENR-..." enrollment reference.
+    CHANNEL_ENROLLED = "CHANNEL_ENROLLED"
 
 
 # Outcomes that satisfy hard requirement 3 (ticket may leave OPEN). Kept here
@@ -34,6 +48,17 @@ CLOSURE_SATISFYING_OUTCOMES = frozenset(
         AuditOutcome.DENIED,
         AuditOutcome.EXPIRED,
         AuditOutcome.ADMIN_OVERRIDE,
+        AuditOutcome.FRAUD_REPORTED,
+    }
+)
+
+# Outcomes meaning verification could not even be attempted. The agent sees
+# these as the reason the ticket is blocked.
+BLOCKING_OUTCOMES = frozenset(
+    {
+        AuditOutcome.NO_CHANNEL_BLOCKED,
+        AuditOutcome.RATE_LIMITED,
+        AuditOutcome.RISK_BLOCKED,
     }
 )
 

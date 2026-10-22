@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import RedirectResponse
 
@@ -26,12 +28,23 @@ def login_submit(
     password: str = Form(...),
 ):
     staff_repo = request.app.state.staff_repo
+    throttle = request.app.state.login_throttle
+    now = datetime.now(UTC)
+    if throttle.is_locked(username, now):
+        # Checked before the password, so a correct guess during lockout
+        # still fails and gives the attacker no signal.
+        return RedirectResponse(
+            url="/login?error=Too+many+failed+attempts.+Try+again+in+15+minutes.",
+            status_code=303,
+        )
     try:
         user = authenticate(staff_repo, username=username, password=password)
     except InvalidCredentials:
+        throttle.record_failure(username, now)
         return RedirectResponse(
             url="/login?error=Invalid+username+or+password", status_code=303
         )
+    throttle.record_success(username)
 
     cookie_value = create_session_cookie(request.app.state.settings.session_secret, user.id)
     response = RedirectResponse(url="/", status_code=303)

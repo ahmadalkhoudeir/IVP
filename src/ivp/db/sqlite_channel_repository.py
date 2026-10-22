@@ -26,6 +26,12 @@ class ChannelEnrollment:
     label: str
     destination_fingerprint: str
     enrolled_at: datetime
+    usable_from: datetime | None = None
+
+    def is_usable(self, now: datetime) -> bool:
+        """False while the channel is still inside its enrollment cooling-off
+        period (docs/decisions/enrollment-cooling-off.md)."""
+        return (self.usable_from or self.enrolled_at) <= now
 
 
 def fingerprint(destination: str) -> str:
@@ -44,16 +50,27 @@ class SqliteChannelRepository:
         label: str,
         destination: str,
         now: datetime,
+        usable_from: datetime | None = None,
     ) -> ChannelEnrollment:
         enrollment_id = str(uuid.uuid4())
         fp = fingerprint(destination)
+        usable_from = usable_from or now
         self._conn.execute(
             """
             INSERT INTO channel_enrollments
-                (id, subscriber_id, channel_type, label, destination_fingerprint, enrolled_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+                (id, subscriber_id, channel_type, label, destination_fingerprint,
+                 enrolled_at, usable_from)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            (enrollment_id, subscriber_id, channel_type.value, label, fp, now.isoformat()),
+            (
+                enrollment_id,
+                subscriber_id,
+                channel_type.value,
+                label,
+                fp,
+                now.isoformat(),
+                usable_from.isoformat(),
+            ),
         )
         self._conn.commit()
         return ChannelEnrollment(
@@ -63,6 +80,7 @@ class SqliteChannelRepository:
             label=label,
             destination_fingerprint=fp,
             enrolled_at=now,
+            usable_from=usable_from,
         )
 
     def list_for_subscriber(self, subscriber_id: str) -> list[ChannelEnrollment]:
@@ -81,6 +99,14 @@ class SqliteChannelRepository:
         ).fetchone()
         return self._row_to_enrollment(row) if row else None
 
+    def fingerprint_exists(self, subscriber_id: str, destination: str) -> bool:
+        row = self._conn.execute(
+            "SELECT 1 FROM channel_enrollments WHERE subscriber_id = ? "
+            "AND destination_fingerprint = ?",
+            (subscriber_id, fingerprint(destination)),
+        ).fetchone()
+        return row is not None
+
     def list_distinct_subscribers(self) -> list[str]:
         rows = self._conn.execute(
             "SELECT DISTINCT subscriber_id FROM channel_enrollments ORDER BY subscriber_id"
@@ -96,4 +122,7 @@ class SqliteChannelRepository:
             label=row["label"],
             destination_fingerprint=row["destination_fingerprint"],
             enrolled_at=datetime.fromisoformat(row["enrolled_at"]),
+            usable_from=(
+                datetime.fromisoformat(row["usable_from"]) if row["usable_from"] else None
+            ),
         )

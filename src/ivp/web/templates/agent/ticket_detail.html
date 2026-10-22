@@ -2,7 +2,12 @@
 {% block title %}{{ ticket.id }} — IVP{% endblock %}
 {% block content %}
 <div class="card">
-  <h2>{{ ticket.id }}</h2>
+  <div class="page-header">
+    <h2>{{ ticket.id }}</h2>
+    <div class="actions">
+      <a class="btn secondary" href="/tickets/{{ ticket.id }}/receipt">Verification receipt</a>
+    </div>
+  </div>
   <p>
     Subscriber: <strong>{{ ticket.subscriber_id }}</strong> &middot;
     Action: <strong>{{ ticket.requested_action.value }}</strong> &middot;

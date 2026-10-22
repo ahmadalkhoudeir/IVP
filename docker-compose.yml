@@ -12,6 +12,7 @@ services:
       IVP_CONFIRMATION_TIMEOUT_SECONDS: "240"
       IVP_MAX_CONFIRMATION_ATTEMPTS: "3"
       IVP_SEED_DEMO_DATA: "true"
+      IVP_ENROLLMENT_COOLING_OFF_HOURS: "24"
     volumes:
       - ivp_data:/app/demo_data
 

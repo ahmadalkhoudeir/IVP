@@ -2,7 +2,12 @@
 {% block title %}Team audit log — IVP{% endblock %}
 {% block content %}
 <div class="card">
-  <h2>Team audit log</h2>
+  <div class="page-header">
+    <h2>Team audit log</h2>
+    <div class="actions">
+      <a class="btn secondary" href="/supervisor/audit/export.csv">Export CSV</a>
+    </div>
+  </div>
   <p class="muted">Read-only, scoped to your team ({{ current_user.team_id }}).</p>
 </div>
 <div class="card">

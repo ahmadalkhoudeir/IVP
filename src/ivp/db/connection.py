@@ -49,7 +49,8 @@ CREATE TABLE IF NOT EXISTS tickets (
     action_performed INTEGER NOT NULL DEFAULT 0,
     agent_id TEXT NOT NULL,
     subscriber_id TEXT NOT NULL,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    closed_at TEXT
 );
 
 -- team_id groups agents and supervisors for the supervisor's scoped view
@@ -69,7 +70,11 @@ CREATE TABLE IF NOT EXISTS channel_enrollments (
     channel_type TEXT NOT NULL,
     label TEXT NOT NULL,
     destination_fingerprint TEXT NOT NULL,
-    enrolled_at TEXT NOT NULL
+    enrolled_at TEXT NOT NULL,
+    -- Cooling-off: a channel added for a subscriber who already has one is
+    -- not used for verification before this time
+    -- (docs/decisions/enrollment-cooling-off.md).
+    usable_from TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_channel_enrollments_subscriber
@@ -113,5 +118,18 @@ def connect(path: str) -> sqlite3.Connection:
     conn.execute("PRAGMA journal_mode = WAL")
     conn.execute("PRAGMA foreign_keys = ON")
     conn.executescript(SCHEMA)
+    _migrate(conn)
     conn.commit()
     return conn
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    """Additive, idempotent migrations for databases created by an earlier
+    version (CREATE TABLE IF NOT EXISTS never adds new columns). Never
+    touches audit_log: its rows and hashes are immutable by design."""
+    columns = {row["name"] for row in conn.execute("PRAGMA table_info(channel_enrollments)")}
+    if "usable_from" not in columns:
+        conn.execute("ALTER TABLE channel_enrollments ADD COLUMN usable_from TEXT")
+    ticket_columns = {row["name"] for row in conn.execute("PRAGMA table_info(tickets)")}
+    if "closed_at" not in ticket_columns:
+        conn.execute("ALTER TABLE tickets ADD COLUMN closed_at TEXT")

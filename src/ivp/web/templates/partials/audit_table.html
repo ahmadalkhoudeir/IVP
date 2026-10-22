@@ -10,7 +10,7 @@
       <td>{{ r.actor_id }} ({{ r.actor_role }})</td>
       <td>{{ r.channel_type.value if r.channel_type else "—" }}</td>
       <td><span class="badge {{ r.outcome.value|lower|replace('_', '-') }}">{{ r.outcome.value }}</span></td>
-      <td>{{ r.timestamp }}</td>
+      <td style="white-space: nowrap;" title="{{ r.timestamp.isoformat() }}">{{ r.timestamp.strftime("%Y-%m-%d %H:%M:%S") }}</td>
       <td>{{ r.reason or "—" }}</td>
     </tr>
   {% endfor %}

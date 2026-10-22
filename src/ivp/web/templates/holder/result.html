@@ -9,6 +9,10 @@
     <h2><span class="badge denied">DENIED</span></h2>
     <p>You denied the request (or the code didn't match). The agent has been notified and the
     sensitive action will not be performed.</p>
+  {% elif outcome == "FRAUD_REPORTED" %}
+    <h2><span class="badge fraud-reported">REPORTED</span></h2>
+    <p>Thank you. The request was blocked and flagged to the help desk's supervisors as a likely
+    impersonation attempt. Nothing on your account was changed.</p>
   {% elif outcome == "ALREADY_RESOLVED" %}
     <h2><span class="badge expired">Already resolved</span></h2>
     <p>This confirmation link has already been used

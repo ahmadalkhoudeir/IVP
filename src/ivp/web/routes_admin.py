@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, Response
 
 from ivp.adapters.ticketing.interface import TicketNotFound
 from ivp.audit.log import TamperDetected
@@ -14,6 +15,9 @@ from ivp.core.models import ChannelType
 from ivp.core.ticket import ClosureBlocked
 from ivp.db.sqlite_staff_repository import StaffUser, UsernameAlreadyExists
 from ivp.services.anchor_service import AnchorVerificationFailed
+from ivp.services.audit_export import records_to_csv
+from ivp.services.enrollment_service import EnrollmentRejected
+from ivp.services.metrics import compute_metrics
 
 router = APIRouter(prefix="/admin")
 
@@ -29,8 +33,34 @@ def _require(permission: Permission):
 def dashboard(request: Request, user: StaffUser = Depends(_require(Permission.VIEW_ALL_TICKETS))):
     templates = request.app.state.templates
     tickets = request.app.state.ticket_repo.list_all()
+    metrics = compute_metrics(tickets, request.app.state.audit_log)
     return templates.TemplateResponse(
-        request, "admin/dashboard.html", {"current_user": user, "tickets": tickets}
+        request,
+        "admin/dashboard.html",
+        {"current_user": user, "tickets": tickets, "fraud_ticket_ids": metrics.fraud_ticket_ids},
+    )
+
+
+@router.get("/metrics")
+def all_metrics(request: Request, user: StaffUser = Depends(_require(Permission.VIEW_ALL_TICKETS))):
+    templates = request.app.state.templates
+    metrics = compute_metrics(request.app.state.ticket_repo.list_all(), request.app.state.audit_log)
+    return templates.TemplateResponse(
+        request,
+        "metrics.html",
+        {"current_user": user, "metrics": metrics, "scope": "all teams", "back_url": "/admin"},
+    )
+
+
+@router.get("/audit/export.csv")
+def export_audit(
+    request: Request, user: StaffUser = Depends(_require(Permission.VIEW_ALL_AUDIT_LOG))
+):
+    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    return Response(
+        records_to_csv(request.app.state.audit_log.all_records()),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="ivp-audit-{stamp}.csv"'},
     )
 
 
@@ -54,9 +84,7 @@ def create_checkpoint(
 ):
     receipt = request.app.state.anchor_service.checkpoint_if_new_records(now=datetime.now(UTC))
     if receipt is None:
-        return RedirectResponse(
-            url="/admin/audit?error=Nothing+new+to+checkpoint", status_code=303
-        )
+        return RedirectResponse(url="/admin/audit?error=Nothing+new+to+checkpoint", status_code=303)
     return RedirectResponse(
         url=f"/admin/audit?success=Checkpoint+published+through+sequence+{receipt.sequence_up_to}",
         status_code=303,
@@ -105,9 +133,14 @@ def create_user(
     team_id: str = Form(""),
     user: StaffUser = Depends(_require(Permission.MANAGE_STAFF_ACCOUNTS)),
 ):
+    if role not in {r.value for r in Role} or not username.strip() or len(password) < 12:
+        return RedirectResponse(
+            url="/admin/users?error=Pick+a+valid+role,+a+username,+and+a+password+of+12%2B+characters",
+            status_code=303,
+        )
     try:
         request.app.state.staff_repo.create(
-            username=username,
+            username=username.strip(),
             password_hash=hash_password(password),
             role=Role(role),
             team_id=team_id or None,
@@ -153,10 +186,28 @@ def list_subscribers(
         {"id": sub_id, "channels": channel_repo.list_for_subscriber(sub_id)}
         for sub_id in subscriber_ids
     ]
+    notices = sorted(
+        [
+            *request.app.state.push_adapter.enrollment_notices,
+            *request.app.state.pstn_adapter.enrollment_notices,
+        ],
+        key=lambda n: n.sent_at,
+        reverse=True,
+    )
+    labels = {c.id: c.label for s in subscribers for c in s["channels"]}
     return templates.TemplateResponse(
         request,
         "admin/subscribers.html",
-        {"current_user": user, "subscribers": subscribers, "channel_types": list(ChannelType)},
+        {
+            "current_user": user,
+            "subscribers": subscribers,
+            "channel_types": list(ChannelType),
+            "now": datetime.now(UTC),
+            "notices": notices,
+            "channel_labels": labels,
+            "cooling_off_hours": request.app.state.settings.enrollment_cooling_off.total_seconds()
+            / 3600,
+        },
     )
 
 
@@ -169,14 +220,36 @@ def enroll_channel(
     destination: str = Form(...),
     user: StaffUser = Depends(_require(Permission.MANAGE_CHANNEL_ENROLLMENTS)),
 ):
-    request.app.state.channel_repo.enroll(
-        subscriber_id=subscriber_id.strip(),
-        channel_type=ChannelType(channel_type),
-        label=label,
-        destination=destination,
-        now=datetime.now(UTC),
+    try:
+        kind = ChannelType(channel_type)
+    except ValueError:
+        return RedirectResponse(
+            url="/admin/subscribers?error=Unknown+channel+type", status_code=303
+        )
+    try:
+        result = request.app.state.enrollment_service.enroll(
+            subscriber_id=subscriber_id,
+            channel_type=kind,
+            label=label,
+            destination=destination,
+            actor_id=user.id,
+            actor_role=user.role.value,
+            now=datetime.now(UTC),
+        )
+    except EnrollmentRejected as exc:
+        return RedirectResponse(
+            url=f"/admin/subscribers?{urlencode({'error': str(exc)})}", status_code=303
+        )
+    if result.cooling_off_applied:
+        message = (
+            f"Channel enrolled. {result.notified_channels} existing channel(s) notified; "
+            "the new channel is usable after the cooling-off period."
+        )
+    else:
+        message = "Channel enrolled and usable now (first channel for this subscriber)."
+    return RedirectResponse(
+        url=f"/admin/subscribers?{urlencode({'success': message})}", status_code=303
     )
-    return RedirectResponse(url="/admin/subscribers?success=Channel+enrolled", status_code=303)
 
 
 @router.get("/tickets/{ticket_id}/override")

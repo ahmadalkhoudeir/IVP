@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Receipt {{ ticket.id }} — IVP{% endblock %}
+{% block content %}
+<div class="card receipt">
+  <div class="page-header">
+    <h2>Verification receipt</h2>
+    <div class="actions no-print">
+      <a class="btn secondary" href="/">&larr; Back</a>
+    </div>
+  </div>
+  <p class="muted">Evidence that this ticket's sensitive action was gated by an out-of-band
+  confirmation to a channel enrolled before the call. Print or save it as a PDF from your
+  browser's print menu.</p>
+
+  <dl class="facts">
+    <dt>Ticket</dt><dd>{{ ticket.id }}</dd>
+    <dt>Requested action</dt><dd>{{ ticket.requested_action.value }}</dd>
+    <dt>Subscriber</dt><dd>{{ ticket.subscriber_id }}</dd>
+    <dt>Agent</dt><dd>{{ agent_name }}</dd>
+    <dt>Opened</dt><dd>{{ ticket.created_at.strftime("%Y-%m-%d %H:%M:%S UTC") if ticket.created_at else "—" }}</dd>
+    <dt>Status</dt><dd>{{ ticket.status.value }}{% if ticket.closed_at %} at {{ ticket.closed_at.strftime("%Y-%m-%d %H:%M:%S UTC") }}{% endif %}</dd>
+    <dt>Action performed</dt><dd>{{ "Yes" if ticket.action_performed else "No" }}</dd>
+    <dt>Resolution</dt><dd><span class="badge {{ resolution|lower|replace('_', '-') }}">{{ resolution }}</span></dd>
+    <dt>Time to verify</dt><dd>{% if elapsed_seconds is not none %}{{ "%.1f"|format(elapsed_seconds) }} s{% else %}—{% endif %}</dd>
+  </dl>
+</div>
+
+<div class="card">
+  <h3>Integrity</h3>
+  {% if chain_ok %}
+  <p><span class="badge approved">VERIFIED</span> {{ chain_message }} Every published checkpoint
+  matches the live log.</p>
+  {% else %}
+  <p><span class="badge denied">FAILED</span> {{ chain_message }}</p>
+  {% endif %}
+  {% if latest_checkpoint %}
+  <p>Latest external checkpoint covers records through sequence
+  <strong>{{ latest_checkpoint.sequence_up_to }}</strong>, published
+  {{ latest_checkpoint.published_at.strftime("%Y-%m-%d %H:%M:%S UTC") }}.
+  {% if anchored %}This ticket's records are all covered by it.{% else %}Some of this ticket's
+  records are newer and are protected by the in-database chain only until the next
+  checkpoint.{% endif %}</p>
+  {% else %}
+  <p class="muted">No external checkpoint has been published yet.</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h3>Audit records</h3>
+  {% if records %}
+  <ol class="timeline">
+    {% for r in records %}
+    <li>
+      <div><span class="badge {{ r.outcome.value|lower|replace('_', '-') }}">{{ r.outcome.value }}</span>
+      <strong>#{{ r.sequence }}</strong> &middot; {{ r.timestamp.strftime("%Y-%m-%d %H:%M:%S UTC") }}
+      &middot; {{ r.actor_id }} ({{ r.actor_role }}){% if r.channel_type %} &middot; via {{ r.channel_type.value }}{% endif %}</div>
+      {% if r.reason %}<div class="muted">Reason: {{ r.reason }}</div>{% endif %}
+      <div class="hash">record {{ r.record_hash }}</div>
+      <div class="hash">prev&nbsp;&nbsp; {{ r.prev_hash }}</div>
+    </li>
+    {% endfor %}
+  </ol>
+  {% else %}
+  <p class="muted">No audit records for this ticket yet.</p>
+  {% endif %}
+  <p class="muted" style="font-size: 0.8rem;">Generated {{ generated_at.strftime("%Y-%m-%d %H:%M:%S UTC") }}
+  by {{ current_user.username }}.</p>
+</div>
+{% endblock %}

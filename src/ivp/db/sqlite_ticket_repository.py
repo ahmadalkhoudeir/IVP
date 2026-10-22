@@ -31,6 +31,7 @@ class SqliteTicketRepository:
             ),
         )
         self._conn.commit()
+        ticket.created_at = now
 
     def get(self, ticket_id: str) -> Ticket:
         row = self._conn.execute("SELECT * FROM tickets WHERE id = ?", (ticket_id,)).fetchone()
@@ -40,8 +41,13 @@ class SqliteTicketRepository:
 
     def save(self, ticket: Ticket) -> None:
         self._conn.execute(
-            "UPDATE tickets SET status = ?, action_performed = ? WHERE id = ?",
-            (ticket.status.value, int(ticket.action_performed), ticket.id),
+            "UPDATE tickets SET status = ?, action_performed = ?, closed_at = ? WHERE id = ?",
+            (
+                ticket.status.value,
+                int(ticket.action_performed),
+                ticket.closed_at.isoformat() if ticket.closed_at else None,
+                ticket.id,
+            ),
         )
         self._conn.commit()
 
@@ -82,4 +88,6 @@ class SqliteTicketRepository:
             agent_id=row["agent_id"],
             status=TicketStatus(row["status"]),
             action_performed=bool(row["action_performed"]),
+            created_at=datetime.fromisoformat(row["created_at"]),
+            closed_at=datetime.fromisoformat(row["closed_at"]) if row["closed_at"] else None,
         )

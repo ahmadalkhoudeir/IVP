@@ -38,6 +38,10 @@ class Ticket:
     agent_id: str
     status: TicketStatus = TicketStatus.OPEN
     action_performed: bool = field(default=False)
+    # Populated by the repository; used for the speed metrics (the 30-second
+    # target, hard requirement 5) and the verification receipt.
+    created_at: datetime | None = field(default=None)
+    closed_at: datetime | None = field(default=None)
 
 
 class TicketClosureGate:

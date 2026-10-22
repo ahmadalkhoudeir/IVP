@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Metrics — IVP{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="page-header">
+    <h2>Verification metrics</h2>
+    <div class="actions"><a class="btn secondary" href="{{ back_url }}">&larr; Tickets</a></div>
+  </div>
+  <p class="muted">Scope: {{ scope }}. Computed from the tickets table and the hash-chained audit
+  log. Time to verify runs from ticket creation to the account holder's response.</p>
+</div>
+
+<div class="tiles">
+  <div class="tile">
+    <div class="tile-label">Median time to verify</div>
+    <div class="tile-value">{% if metrics.median_seconds is not none %}{{ "%.0f"|format(metrics.median_seconds) }}<span class="tile-unit">s</span>{% else %}—{% endif %}</div>
+    <div class="tile-note">target under {{ metrics.target_seconds }}s</div>
+  </div>
+  <div class="tile">
+    <div class="tile-label">Within target</div>
+    <div class="tile-value">{% if metrics.within_target_pct is not none %}{{ "%.0f"|format(metrics.within_target_pct) }}<span class="tile-unit">%</span>{% else %}—{% endif %}</div>
+    <div class="tile-note">of {{ metrics.verify_samples }} holder response{{ "s" if metrics.verify_samples != 1 }}</div>
+  </div>
+  <div class="tile">
+    <div class="tile-label">90th percentile</div>
+    <div class="tile-value">{% if metrics.p90_seconds is not none %}{{ "%.0f"|format(metrics.p90_seconds) }}<span class="tile-unit">s</span>{% else %}—{% endif %}</div>
+    <div class="tile-note">slowest tenth of verifications</div>
+  </div>
+  <div class="tile">
+    <div class="tile-label">Tickets</div>
+    <div class="tile-value">{{ metrics.total_tickets }}</div>
+    <div class="tile-note">{{ metrics.open_tickets }} open &middot; {{ metrics.closed_tickets }} closed</div>
+  </div>
+  <div class="tile {{ 'tile-alert' if metrics.fraud_ticket_ids }}">
+    <div class="tile-label">Fraud reports</div>
+    <div class="tile-value">{{ metrics.fraud_ticket_ids|length }}</div>
+    <div class="tile-note">holder said "I did not request this"</div>
+  </div>
+</div>
+
+<div class="card">
+  <h3>How tickets resolved</h3>
+  <p class="muted">The first verification record on each ticket. BLOCKED means verification never
+  started (no channel, rate limit, or carrier risk) and no override has been recorded yet.</p>
+  <table class="breakdown">
+    <thead><tr><th>Resolution</th><th class="num">Tickets</th><th class="num">Share</th><th class="bar-col"><span class="visually-hidden">Bar</span></th></tr></thead>
+    <tbody>
+      {% for label, count, pct in metrics.resolution_rows %}
+      <tr title="{{ label }}: {{ count }} ticket{{ 's' if count != 1 }} ({{ '%.0f'|format(pct) }}%)">
+        <td><span class="badge {{ label|lower|replace('_', '-') }}">{{ label }}</span></td>
+        <td class="num">{{ count }}</td>
+        <td class="num">{{ "%.0f"|format(pct) }}%</td>
+        <td class="bar-col"><div class="bar-track"><div class="bar" style="width: {{ '%.1f'|format(pct) }}%"></div></div></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="card">
+  <h3>By agent</h3>
+  {% if metrics.agents %}
+  <div class="overflow-x">
+  <table>
+    <thead><tr><th>Agent</th><th class="num">Tickets</th><th class="num">Approved</th><th class="num">Fraud reports</th><th class="num">Admin overrides</th></tr></thead>
+    <tbody>
+      {% for a in metrics.agents %}
+      <tr>
+        <td>{{ agent_names.get(a.agent_id, a.agent_id) if agent_names else a.agent_id }}</td>
+        <td class="num">{{ a.tickets }}</td>
+        <td class="num">{{ a.approved }}</td>
+        <td class="num">{{ a.fraud_reports }}</td>
+        <td class="num">{{ a.overrides }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <p class="muted" style="font-size: 0.85rem;">Fraud reports reflect callers, not agents: an agent
+  with several just took calls from impersonators, and the system stopped every one.</p>
+  {% else %}
+  <p class="muted">No tickets yet.</p>
+  {% endif %}
+</div>
+{% endblock %}

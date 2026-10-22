@@ -20,5 +20,12 @@
       None of these match — deny this request
     </button>
   </form>
+  <form method="post" action="/confirm/{{ attempt_id }}/report" style="margin-top: 1rem;">
+    <button type="submit" class="danger" style="width: 100%;">
+      I did not request this — report it
+    </button>
+  </form>
+  <p class="muted" style="font-size: 0.85rem;">Nobody from the help desk will ever ask you to
+  read a code to them. If you're not on a call you started, report it.</p>
 </div>
 {% endblock %}

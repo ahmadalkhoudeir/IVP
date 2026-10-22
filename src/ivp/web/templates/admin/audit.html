@@ -2,7 +2,12 @@
 {% block title %}Full audit log — IVP{% endblock %}
 {% block content %}
 <div class="card">
-  <h2>Full audit log</h2>
+  <div class="page-header">
+    <h2>Full audit log</h2>
+    <div class="actions">
+      <a class="btn secondary" href="/admin/audit/export.csv">Export CSV</a>
+    </div>
+  </div>
   <p class="muted">Append-only, hash-chained. No update/delete path exists for any role.</p>
 </div>
 

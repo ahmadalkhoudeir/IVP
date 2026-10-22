@@ -7,13 +7,16 @@ from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
 
 from ivp.adapters.ticketing.interface import TicketNotFound
+from ivp.audit.record import BLOCKING_OUTCOMES, AuditOutcome
 from ivp.auth.deps import require_permission
 from ivp.auth.roles import Permission
-from ivp.core.models import SensitiveAction
+from ivp.core.models import TICKET_ACTIONS
 from ivp.core.state_machine import VerificationState
 from ivp.core.ticket import ClosureBlocked, Ticket
 from ivp.db.sqlite_staff_repository import StaffUser
 from ivp.services.demo_seed import DEMO_SUBSCRIBERS
+
+KNOWN_SUBSCRIBER_IDS = frozenset(sub_id for sub_id, _name, _channels in DEMO_SUBSCRIBERS)
 
 router = APIRouter(prefix="/agent")
 
@@ -41,6 +44,41 @@ def _load_owned_ticket(request: Request, ticket_id: str, user: StaffUser) -> Tic
     return ticket
 
 
+def _known_subscribers(request: Request) -> frozenset[str]:
+    """Subscribers an agent may open a ticket for: the demo directory plus
+    anyone with an enrolled channel. A real deployment would look this up
+    in the identity provider through an adapter."""
+    enrolled = request.app.state.channel_repo.list_distinct_subscribers()
+    return KNOWN_SUBSCRIBER_IDS | frozenset(enrolled)
+
+
+def _status_context(request: Request, ticket: Ticket) -> dict:
+    """Everything the verification-status fragment needs. Shared by the full
+    ticket page and the htmx polling endpoint so they can't drift apart."""
+    orchestrator = request.app.state.orchestrator
+    now = datetime.now(UTC)
+    orchestrator.check_and_apply_timeout(ticket.id, now=now)
+    latest = orchestrator.verification_repo.latest_for_ticket(ticket.id)
+    records = request.app.state.audit_log.records_for_ticket(ticket.id)
+    blocks = [r for r in records if r.outcome in BLOCKING_OUTCOMES]
+    attempt = latest[1] if latest else None
+    seconds_remaining = None
+    if attempt and attempt.state == VerificationState.PENDING_CONFIRMATION:
+        deadline = attempt.pending_since + attempt.timeout
+        seconds_remaining = max(0, int((deadline - now).total_seconds()))
+    return {
+        "ticket": ticket,
+        "attempt": attempt,
+        "attempt_id": latest[0] if latest else None,
+        "code": latest[2] if latest else None,
+        "block": blocks[-1] if blocks else None,
+        "fraud_reported": any(r.outcome == AuditOutcome.FRAUD_REPORTED for r in records),
+        "seconds_remaining": seconds_remaining,
+        "audit_records": records,
+        "VerificationState": VerificationState,
+    }
+
+
 @router.get("")
 def dashboard(request: Request, user: StaffUser = Depends(_require_agent)):
     tickets = request.app.state.ticket_repo.list_for_agent(user.id)
@@ -59,7 +97,7 @@ def new_ticket_form(request: Request, user: StaffUser = Depends(_require_request
         {
             "current_user": user,
             "subscribers": DEMO_SUBSCRIBERS,
-            "actions": list(SensitiveAction),
+            "actions": list(TICKET_ACTIONS),
         },
     )
 
@@ -71,13 +109,18 @@ def create_ticket(
     requested_action: str = Form(...),
     user: StaffUser = Depends(_require_requester),
 ):
+    action = next((a for a in TICKET_ACTIONS if a.value == requested_action), None)
+    if action is None or subscriber_id not in _known_subscribers(request):
+        return RedirectResponse(
+            url="/agent/tickets/new?error=Unknown+subscriber+or+action", status_code=303
+        )
     orchestrator = request.app.state.orchestrator
     ticket_id = f"TCK-{uuid.uuid4().hex[:8]}"
     orchestrator.open_ticket_and_start_verification(
         ticket_id=ticket_id,
         agent_id=user.id,
         subscriber_id=subscriber_id,
-        requested_action=SensitiveAction(requested_action),
+        requested_action=action,
         now=datetime.now(UTC),
     )
     return RedirectResponse(url=f"/agent/tickets/{ticket_id}", status_code=303)
@@ -90,24 +133,9 @@ def ticket_detail(request: Request, ticket_id: str, user: StaffUser = Depends(_r
         return RedirectResponse(url="/agent?error=Ticket+not+found", status_code=303)
 
     templates = request.app.state.templates
-    orchestrator = request.app.state.orchestrator
-    orchestrator.check_and_apply_timeout(ticket_id, now=datetime.now(UTC))
-
-    latest = orchestrator.verification_repo.latest_for_ticket(ticket_id)
-    audit_records = request.app.state.audit_log.records_for_ticket(ticket_id)
-    return templates.TemplateResponse(
-        request,
-        "agent/ticket_detail.html",
-        {
-            "current_user": user,
-            "ticket": ticket,
-            "attempt": latest[1] if latest else None,
-            "attempt_id": latest[0] if latest else None,
-            "code": latest[2] if latest else None,
-            "audit_records": audit_records,
-            "VerificationState": VerificationState,
-        },
-    )
+    context = _status_context(request, ticket)
+    context["current_user"] = user
+    return templates.TemplateResponse(request, "agent/ticket_detail.html", context)
 
 
 @router.get("/tickets/{ticket_id}/status")
@@ -121,19 +149,8 @@ def ticket_status_partial(
         return RedirectResponse(url="/agent?error=Ticket+not+found", status_code=303)
 
     templates = request.app.state.templates
-    orchestrator = request.app.state.orchestrator
-    orchestrator.check_and_apply_timeout(ticket_id, now=datetime.now(UTC))
-    latest = orchestrator.verification_repo.latest_for_ticket(ticket_id)
     return templates.TemplateResponse(
-        request,
-        "agent/_status_partial.html",
-        {
-            "ticket": ticket,
-            "attempt": latest[1] if latest else None,
-            "attempt_id": latest[0] if latest else None,
-            "code": latest[2] if latest else None,
-            "VerificationState": VerificationState,
-        },
+        request, "agent/_status_partial.html", _status_context(request, ticket)
     )
 
 
@@ -145,6 +162,22 @@ def retry_verification(
         return RedirectResponse(url="/agent?error=Ticket+not+found", status_code=303)
     request.app.state.orchestrator.retry_verification(ticket_id, now=datetime.now(UTC))
     return RedirectResponse(url=f"/agent/tickets/{ticket_id}", status_code=303)
+
+
+@router.post("/tickets/{ticket_id}/restart")
+def restart_verification(
+    request: Request, ticket_id: str, user: StaffUser = Depends(_require_agent)
+):
+    """For a ticket whose verification never started (no channel, rate
+    limited, carrier risk). The orchestrator refuses if any verification
+    record already exists, so this can't re-roll a DENIED result."""
+    if _load_owned_ticket(request, ticket_id, user) is None:
+        return RedirectResponse(url="/agent?error=Ticket+not+found", status_code=303)
+    attempt_id = request.app.state.orchestrator.restart_verification(
+        ticket_id, now=datetime.now(UTC)
+    )
+    suffix = "" if attempt_id else "?error=Verification+still+blocked+-+see+the+reason+below"
+    return RedirectResponse(url=f"/agent/tickets/{ticket_id}{suffix}", status_code=303)
 
 
 @router.post("/tickets/{ticket_id}/authorize")

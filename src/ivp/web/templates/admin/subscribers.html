@@ -8,11 +8,12 @@
     a ticket lets an agent supply or change a destination. This page is intentionally not linked
     from anywhere in the ticket flow.
   </p>
-  <p class="demo-warning">
-    Simplification for this demo: enrolling a new channel takes effect immediately. A production
-    system should also notify any existing enrolled channels when a new one is added, with a
-    cooling-off period before the new channel becomes usable — see docs/threat-model.md
-    (Spoofing: attacker asks to change the enrolled channel).
+  <p class="muted">
+    Adding a channel for a subscriber who already has one sends a notice to every existing channel
+    (NIST SP 800-63B-4 §4.1.2.1) and holds the new channel in a
+    <strong>{{ "%g"|format(cooling_off_hours) }}-hour cooling-off</strong> period before it can be
+    used for verification. A subscriber's first channel is usable immediately, since there is
+    nobody to notify. Every enrollment is written to the audit log.
   </p>
 </div>
 
@@ -31,6 +32,9 @@
             {% for c in s.channels %}
               <div style="margin: 0.15rem 0;">
                 <span class="badge pending">{{ c.channel_type.value }}</span> {{ c.label }}
+                {% if not c.is_usable(now) %}
+                <span class="badge expired" title="Not used for verification until then">cooling off until {{ c.usable_from.strftime("%Y-%m-%d %H:%M UTC") }}</span>
+                {% endif %}
               </div>
             {% endfor %}
           {% else %}
@@ -47,6 +51,29 @@
   them or a channel is enrolled for them.</p>
   {% endif %}
 </div>
+
+{% if notices %}
+<div class="card">
+  <h3>Enrollment notices sent</h3>
+  <p class="muted">What the mock adapters "delivered" to existing channels. In production these go
+  to the holder's device, out of band from the enrollment itself.</p>
+  <div class="overflow-x">
+  <table>
+    <thead><tr><th>Sent</th><th>Subscriber</th><th>Sent to</th><th>New channel</th></tr></thead>
+    <tbody>
+      {% for n in notices %}
+      <tr>
+        <td>{{ n.sent_at.strftime("%Y-%m-%d %H:%M:%S UTC") }}</td>
+        <td>{{ n.subscriber_id }}</td>
+        <td>{{ channel_labels.get(n.channel_id, n.channel_id) }}</td>
+        <td>{{ n.new_channel_label }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endif %}
 
 <div class="card" style="max-width: 480px;">
   <h3>Enroll a channel</h3>

@@ -10,7 +10,12 @@ import sqlite3
 from fastapi import Depends, Request
 
 from ivp.auth.roles import Permission, Role, has_permission
-from ivp.auth.session import SESSION_COOKIE_NAME, InvalidSession, read_session_cookie
+from ivp.auth.session import (
+    ADMIN_SESSION_MAX_AGE_SECONDS,
+    SESSION_COOKIE_NAME,
+    InvalidSession,
+    read_session_cookie,
+)
 from ivp.db.sqlite_staff_repository import StaffUser, StaffUserNotFound
 
 
@@ -38,9 +43,19 @@ def get_current_user(request: Request) -> StaffUser | None:
     except InvalidSession:
         return None
     try:
-        return request.app.state.staff_repo.get(user_id)
+        user = request.app.state.staff_repo.get(user_id)
     except StaffUserNotFound:
         return None
+    if user.role == Role.ADMIN:
+        # Role-specific lifetime: the cookie is valid for 8h in general but
+        # an admin's expires after 1h (auth/session.py).
+        try:
+            read_session_cookie(
+                settings.session_secret, cookie, max_age=ADMIN_SESSION_MAX_AGE_SECONDS
+            )
+        except InvalidSession:
+            return None
+    return user
 
 
 def require_login(request: Request) -> StaffUser:

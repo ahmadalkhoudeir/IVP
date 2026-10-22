@@ -14,6 +14,21 @@ class SensitiveAction(StrEnum):
     PASSWORD_RESET = "PASSWORD_RESET"
     MFA_RESET = "MFA_RESET"
     ACCOUNT_UNLOCK = "ACCOUNT_UNLOCK"
+    # Not a ticket action an agent can request: used only as the
+    # requested_action of the CHANNEL_ENROLLED audit record, so channel
+    # enrollment is audited in the same hash chain as everything else
+    # (docs/decisions/enrollment-cooling-off.md). Excluded from
+    # TICKET_ACTIONS below.
+    CHANNEL_ENROLLMENT = "CHANNEL_ENROLLMENT"
+
+
+# The actions an agent may open a ticket for. Anything else submitted to the
+# ticket-creation route is rejected.
+TICKET_ACTIONS: tuple[SensitiveAction, ...] = (
+    SensitiveAction.PASSWORD_RESET,
+    SensitiveAction.MFA_RESET,
+    SensitiveAction.ACCOUNT_UNLOCK,
+)
 
 
 class ChannelType(StrEnum):

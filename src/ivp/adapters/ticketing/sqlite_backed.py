@@ -9,6 +9,8 @@ trusting the caller.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from ivp.core.ticket import Ticket, TicketClosureGate
 from ivp.db.sqlite_ticket_repository import SqliteTicketRepository
 
@@ -24,6 +26,7 @@ class SqlitePersistedTicketingAdapter:
     def close_ticket(self, ticket_id: str) -> None:
         ticket = self._repository.get(ticket_id)
         self._closure_gate.close(ticket)  # raises ClosureBlocked if not eligible
+        ticket.closed_at = datetime.now(UTC)
         self._repository.save(ticket)
 
     def mark_action_performed(self, ticket_id: str) -> None:

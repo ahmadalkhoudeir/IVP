@@ -8,7 +8,7 @@ surfaced.
 
 from __future__ import annotations
 
-import random
+import secrets
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Form, Request
@@ -27,7 +27,7 @@ def _decoy_choices(real_code: str) -> list[str]:
         if candidate != real_code:
             decoys.add(candidate)
     choices = [real_code, *decoys]
-    random.shuffle(choices)
+    secrets.SystemRandom().shuffle(choices)
     return choices
 
 
@@ -73,6 +73,26 @@ def confirm_submit(request: Request, attempt_id: str, selected_code: str = Form(
             request, "holder/not_found.html", {"current_user": None}, status_code=404
         )
 
+    return templates.TemplateResponse(
+        request,
+        "holder/result.html",
+        {"current_user": None, "outcome": result.name, "state": None},
+    )
+
+
+@router.post("/confirm/{attempt_id}/report")
+def report_fraud(request: Request, attempt_id: str):
+    """"I did not request this." Denies the attempt and records
+    FRAUD_REPORTED so supervisors see a likely impersonation attempt
+    (docs/decisions/fraud-reporting.md)."""
+    templates = request.app.state.templates
+    orchestrator = request.app.state.orchestrator
+    try:
+        result = orchestrator.report_fraud(attempt_id, now=datetime.now(UTC))
+    except VerificationAttemptNotFound:
+        return templates.TemplateResponse(
+            request, "holder/not_found.html", {"current_user": None}, status_code=404
+        )
     return templates.TemplateResponse(
         request,
         "holder/result.html",

@@ -15,6 +15,8 @@
   --purple: #5a3ea1;
   --purple-bg: #ece2fb;
   --code-bg: #eef1f5;
+  --info-bg: #dbe9f6;
+  --info: #1d4488;
 
   --radius: 10px;
   --radius-sm: 6px;
@@ -40,6 +42,8 @@
     --purple: #b49bea;
     --purple-bg: #2a2140;
     --code-bg: #10151c;
+    --info-bg: #17263d;
+    --info: #9cc0f2;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 1px 8px rgba(0, 0, 0, 0.3);
     --shadow-hover: 0 2px 4px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.35);
   }
@@ -92,7 +96,7 @@ header.topbar .brand small {
   text-transform: uppercase;
 }
 .role-chip.role-agent { background: var(--purple-bg); color: var(--purple); }
-.role-chip.role-supervisor { background: #dbe9f6; color: var(--accent-ink); }
+.role-chip.role-supervisor { background: var(--info-bg); color: var(--info); }
 .role-chip.role-admin { background: var(--warn-bg); color: var(--warn); }
 
 main {
@@ -145,13 +149,16 @@ tbody tr:last-child td { border-bottom: none; }
 }
 .badge.open { background: var(--warn-bg); color: var(--warn); }
 .badge.closed { background: var(--ok-bg); color: var(--ok); }
-.badge.pending { background: #dbe9f6; color: var(--accent-ink); }
+.badge.pending { background: var(--info-bg); color: var(--info); }
 .badge.approved { background: var(--ok-bg); color: var(--ok); }
 .badge.denied { background: var(--bad-bg); color: var(--bad); }
 .badge.expired { background: var(--warn-bg); color: var(--warn); }
 .badge.no-channel, .badge.no-channel-blocked { background: var(--bad-bg); color: var(--bad); }
 .badge.admin-override, .badge.override { background: var(--purple-bg); color: var(--purple); }
 .badge.rejected { background: var(--bad-bg); color: var(--bad); }
+.badge.fraud-reported { background: var(--bad); color: #fff; }
+.badge.rate-limited, .badge.risk-blocked, .badge.blocked { background: var(--warn-bg); color: var(--warn); }
+.badge.channel-enrolled { background: var(--code-bg); color: var(--ink); }
 
 button, .btn {
   display: inline-block;
@@ -242,3 +249,55 @@ input[type="text"], input[type="password"], select {
   margin: 1rem 0;
 }
 .code-choice button { flex: 1; min-width: 100px; font-size: 1.3rem; padding: 0.85rem; }
+
+
+/* ---- Metrics ---------------------------------------------------------- */
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+.tile {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 0.9rem 1rem;
+}
+.tile-label { color: var(--muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.tile-value { font-size: 2rem; font-weight: 650; font-variant-numeric: tabular-nums; line-height: 1.2; margin: 0.2rem 0; }
+.tile-unit { font-size: 1rem; font-weight: 500; color: var(--muted); margin-left: 0.1rem; }
+.tile-note { color: var(--muted); font-size: 0.8rem; }
+.tile-alert { border-color: var(--bad); }
+.tile-alert .tile-value { color: var(--bad); }
+
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+table.breakdown { width: 100%; }
+.bar-col { width: 45%; }
+.bar-track { height: 10px; background: var(--code-bg); border-radius: 4px; overflow: hidden; }
+.bar { height: 100%; background: var(--accent); border-radius: 4px; min-width: 0; }
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap;
+}
+
+/* ---- Receipt ---------------------------------------------------------- */
+dl.facts { display: grid; grid-template-columns: max-content 1fr; gap: 0.35rem 1.25rem; margin: 1rem 0 0; }
+dl.facts dt { color: var(--muted); }
+dl.facts dd { margin: 0; overflow-wrap: anywhere; }
+ol.timeline { list-style: none; padding: 0; margin: 0; }
+ol.timeline li { border-left: 3px solid var(--line); padding: 0.4rem 0 0.8rem 0.9rem; }
+.hash { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.75rem; color: var(--muted); overflow-wrap: anywhere; }
+
+@media (max-width: 560px) {
+  dl.facts { grid-template-columns: 1fr; }
+  dl.facts dd { margin-bottom: 0.4rem; }
+  .bar-col { display: none; }
+}
+
+@media print {
+  .topbar, .no-print, .flash { display: none !important; }
+  body { background: #fff; color: #000; }
+  .card { box-shadow: none; border: 1px solid #999; break-inside: avoid; }
+}

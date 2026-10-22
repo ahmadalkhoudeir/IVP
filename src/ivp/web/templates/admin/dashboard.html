@@ -1,10 +1,18 @@
 {% extends "base.html" %}
 {% block title %}Admin — IVP{% endblock %}
 {% block content %}
+{% if fraud_ticket_ids %}
+<div class="flash error">
+  <strong>Fraud reported on {{ fraud_ticket_ids|length }} ticket{{ "s" if fraud_ticket_ids|length != 1 }}:</strong>
+  the account holder said they did not request the action. Review these calls:
+  {% for tid in fraud_ticket_ids %}<a href="/tickets/{{ tid }}/receipt">{{ tid }}</a>{{ ", " if not loop.last }}{% endfor %}
+</div>
+{% endif %}
 <div class="card">
   <div class="page-header">
     <h2>All tickets</h2>
     <div class="actions">
+      <a class="btn secondary" href="/admin/metrics">Metrics</a>
       <a class="btn secondary" href="/admin/audit">Full audit log</a>
       <a class="btn secondary" href="/admin/users">Staff accounts</a>
       <a class="btn secondary" href="/admin/subscribers">Channel enrollments</a>
@@ -20,7 +28,7 @@
     <tbody>
       {% for t in tickets %}
       <tr>
-        <td>{{ t.id }}</td>
+        <td><a href="/tickets/{{ t.id }}/receipt">{{ t.id }}</a></td>
         <td>{{ t.agent_id }}</td>
         <td>{{ t.subscriber_id }}</td>
         <td>{{ t.requested_action.value }}</td>

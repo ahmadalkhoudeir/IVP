@@ -12,6 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
+from ivp.adapters.notification.mock_push import EnrollmentNotice
 from ivp.adapters.notification.rate_limit import SlidingWindowRateLimiter
 from ivp.core.models import ChannelType
 
@@ -41,6 +42,7 @@ class SentPstn:
 class MockPstnAdapter:
     channel_type: ChannelType = field(default=ChannelType.PSTN, init=False)
     sent: list[SentPstn] = field(default_factory=list)
+    enrollment_notices: list[EnrollmentNotice] = field(default_factory=list)
     # Test/demo hook: pre-seed a channel_id with risk signals to simulate a
     # carrier flagging a SIM swap or number port.
     risk_overrides: dict[str, RiskSignals] = field(default_factory=dict)
@@ -59,4 +61,16 @@ class MockPstnAdapter:
         self._rate_limiter.check_and_record(channel_id, now)
         self.sent.append(
             SentPstn(channel_id=channel_id, ticket_id=ticket_id, code=code, sent_at=now)
+        )
+
+    def send_enrollment_notice(
+        self, *, channel_id: str, subscriber_id: str, new_channel_label: str, now: datetime
+    ) -> None:
+        self.enrollment_notices.append(
+            EnrollmentNotice(
+                channel_id=channel_id,
+                subscriber_id=subscriber_id,
+                new_channel_label=new_channel_label,
+                sent_at=now,
+            )
         )

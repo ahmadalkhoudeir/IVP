@@ -5,24 +5,51 @@
      hx-swap="outerHTML"
      {% endif %}>
 {% if attempt is none %}
-  <p><span class="badge no-channel">NO_CHANNEL_BLOCKED</span> this subscriber has no enrolled
-  channel. This system will not fall back to knowledge-based verification — an admin must
-  resolve this via an override (with a recorded reason) before the ticket can close.</p>
+  {% if block and block.outcome.value == "RATE_LIMITED" %}
+  <p><span class="badge rate-limited">RATE_LIMITED</span> too many confirmations were sent to this
+  subscriber's channel recently, so no new one was sent. This is the push-bombing defense: it
+  protects the real account holder from a flood of prompts. Wait a few minutes, then try again.</p>
+  {% elif block and block.outcome.value == "RISK_BLOCKED" %}
+  <p><span class="badge risk-blocked">RISK_BLOCKED</span> the carrier reports this subscriber's
+  number was recently ported or SIM-swapped, which is exactly how SMS and voice confirmations get
+  intercepted. No confirmation was sent. Escalate to an admin, who can verify identity another
+  way and record an override with a reason.</p>
+  {% else %}
+  <p><span class="badge no-channel">NO_CHANNEL_BLOCKED</span>
+  {% if block and block.reason %}{{ block.reason }}.{% else %}this subscriber has no enrolled
+  channel.{% endif %} This system will not fall back to knowledge-based verification. An admin
+  must resolve this with an override and a recorded reason before the ticket can close.</p>
+  {% endif %}
+  {% if ticket.status.value == "OPEN" %}
+  <form class="inline" method="post" action="/agent/tickets/{{ ticket.id }}/restart">
+    <button type="submit" class="secondary">Try verification again</button>
+  </form>
+  {% endif %}
 {% elif attempt.state.value == "PENDING_CONFIRMATION" %}
   <p><span class="badge pending">PENDING_CONFIRMATION</span> waiting for the account holder
-  (attempt {{ attempt.attempt_number }} of {{ attempt.max_attempts }}).</p>
-  <p>Read this code aloud to the caller — they must select the matching code:</p>
+  (attempt {{ attempt.attempt_number }} of {{ attempt.max_attempts }}{% if seconds_remaining is not none %},
+  expires in <strong>{{ seconds_remaining // 60 }}:{{ "%02d"|format(seconds_remaining % 60) }}</strong>{% endif %}).</p>
+  <p>Read this code aloud to the caller. They must select the matching code:</p>
   <div class="code-display">{{ code }}</div>
   <div class="demo-warning">
-    DEMO ONLY: in a real deployment you would never see this link — the confirmation goes
+    DEMO ONLY: in a real deployment you would never see this link. The confirmation goes
     straight to the account holder's enrolled device. It's here only so you can simulate their
     side of the flow.<br>
-    <a href="/confirm/{{ attempt_id }}" target="_blank">Open the holder console &rarr;</a>
+    <a href="/confirm/{{ attempt_id }}" target="_blank" rel="noopener">Open the holder console &rarr;</a>
   </div>
 {% elif attempt.state.value == "APPROVED" %}
   <p><span class="badge approved">APPROVED</span> the account holder confirmed the request.</p>
 {% elif attempt.state.value == "DENIED" %}
+  {% if fraud_reported %}
+  <div class="flash error">
+    <span class="badge fraud-reported">FRAUD_REPORTED</span> the account holder says they did
+    <strong>not</strong> request this. The caller is likely impersonating them. Do not perform
+    the action. End the call and follow your escalation procedure. Your supervisor has been
+    flagged.
+  </div>
+  {% else %}
   <p><span class="badge denied">DENIED</span> the account holder denied the request.</p>
+  {% endif %}
 {% elif attempt.state.value == "EXPIRED" %}
   <p><span class="badge expired">EXPIRED</span>
   {% if attempt.can_retry() %}
@@ -31,8 +58,11 @@
       <button type="submit">Resend confirmation</button>
     </form>
   {% else %}
-    no response after {{ attempt.attempt_number }} attempts — no more retries available.
+    no response after {{ attempt.attempt_number }} attempts. No more retries available.
   {% endif %}
   </p>
+  {% if block and block.outcome.value == "RATE_LIMITED" and attempt.can_retry() %}
+  <p class="muted">The last resend was refused by the rate limit. Wait a few minutes.</p>
+  {% endif %}
 {% endif %}
 </div>
